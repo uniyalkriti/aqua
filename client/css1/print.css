@@ -1,0 +1,28 @@
+@charset "utf-8";
+/* CSS Document */
+html{height:100%;}
+body{margin:0px; width:100%; padding:0px; font-family:Verdana, Geneva, sans-serif; font-size:62.5%;}
+#workarea{font-size:1em;}
+#h3{font-size:1.5em;}
+table{font-size:12px; font-family:Verdana, Geneva, sans-serif;}
+.moredetail{display:none;}
+
+#footer{background-color:#193290; height:30px; position:fixed; bottom:0; width:100%;}
+#footer p{color:#FFF; text-align:center; margin-top:1px;}
+#footer p a{color:#bfcbf4;}
+#searchparameters{display:none;}
+#printreportheader{display:block;}
+
+/* css for style where no search option is given, for pages where add & edit code is in the same block */
+.searchlist{border-collapse:collapse; width:99%; margin:0 auto;}
+.searchlist tr{margin:0; padding:0;}
+.searchlist tr td{border:1px solid #000; padding:3px 10px 2px 10px; vertical-align:top;}
+.searchlist caption{text-align:center;}
+.search1tr{font-weight:bold; height:27px;}
+a img{border:none;}
+.options{display:none;}
+.sno{width:40px;}
+.printhide{display:none;}
+.noprint{display:none;}
+
+#searchdata .tdclhyperlink{display:block; color:color:#333; font-family:Verdana, Geneva, sans-serif; text-decoration:none;}@page { 

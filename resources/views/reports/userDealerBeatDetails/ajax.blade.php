@@ -1,0 +1,378 @@
+<div class="clearfix">
+        <div class="pull-right tableTools-container"></div>
+</div>
+<div class="table-header center">
+{{Lang::get('common.user_dealer_beat_details')}}
+   
+</div>
+<table id="dynamic-table" class="table table-bordered" >
+   
+    <thead>
+        <tr>
+        <th>S.No.</th>
+        <th>{{Lang::get('common.location3')}}</th>
+        <th>{{Lang::get('common.location4')}}</th>
+        <th>{{Lang::get('common.location5')}}</th>
+        <th>{{Lang::get('common.location6')}}</th>
+        <th>{{Lang::get('common.user')}}</th>
+        <th>{{Lang::get('common.role_key')}}</th>
+        <th>{{Lang::get('common.user_contact')}}</th>
+        <th>{{Lang::get('common.distributor')}}</th>
+        <th>{{Lang::get('common.location7')}}</th>
+        <th>{{Lang::get('common.retailer')}} Count</th>
+        
+    </tr>
+    </thead>
+    <tbody>
+    <?php $gtotal=0; $gqty=0; $gweight=0; $i=1; $count_call_status_1=[]; $count_call_0=[];?>
+
+    @if(!empty($records) && count($records)>0)
+    
+    @foreach($records as $k=> $r)
+   
+        <?php 
+            $dealer_id = Crypt::encryptString($r->dealer_id); 
+            $user_id = Crypt::encryptString($r->user_id); 
+        ?>
+        <tr>
+            <td>{{$k+1}}</td>
+            <td>{{$r->l3_name}}</td>
+            <td>{{$r->l4_name}}</td>
+            <td>{{$r->l5_name}}</td>
+            <td>{{$r->l6_name}}</td>
+            <td><a href="{{url('user/'.$user_id)}}"> {{$r->first_name.' '.$r->middle_name.' '.$r->last_name}}</a></td>
+
+            <td>{{$r->rolename}}</td>
+            <td>{{$r->mobile}}</td>
+            <td><a href="{{url('user/'.$user_id)}}"> {{$r->dealer_name}}</a></td>
+            <td>{{$r->l7_name}}</td>
+            <td><a class="beat_modal_details" title="beat details" user_id = "{{$r->user_id}}" l7_id = "{{$r->l7_id}}" dealer_id = "{{$r->dealer_id}}"  data-toggle="modal" data-target="#beat_modal_details" >{{!empty($retailer_count[$r->l7_id])?$retailer_count[$r->l7_id]:'0'}}</a></td>
+           
+            
+        </tr>
+            
+    @endforeach
+    @endif
+    </tbody>
+</table>
+
+<div class="modal fade" id="beat_modal_details" role="dialog">
+    <div class="modal-dialog modal-lg3">
+    
+        <!-- Modal content-->
+        <div class="modal-content">
+            <div class="modal-header widget-header widget-header-small">
+                <button type="button" class="close" data-dismiss="modal">&times;</button>
+                <h4 class="modal-title smaller" > {{Lang::get('common.retailer')}} {{Lang::get('common.details')}}</h4>
+            </div>
+            <div class="modal-body ui-dialog-content ui-widget-content">
+                <div class="row">
+                    
+                    <div class="col-xs-12 col-md-12">
+
+                        <table class="table table-bordered table-hover">
+                            <thead>
+                                <th>{{Lang::get('common.s_no')}}</th>
+                                <th>{{Lang::get('common.retailer')}} Name</th>
+                                <th>{{Lang::get('common.retailer')}} Number</th>
+                            </thead>
+                          
+                                <tbody class="mytbody_beat_details">
+                                </tbody>
+                    
+                        </table>
+                    </div>
+                </div>
+                
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-danger pull-right"  data-dismiss="modal">{{Lang::get('common.close')}}</button>
+            </div>
+        </div>
+    </div>
+</div>
+    <script src="{{asset('assets/js/jquery.dataTables.min.js')}}"></script>
+    <script src="{{asset('assets/js/jquery.dataTables.bootstrap.min.js')}}"></script>
+
+    <script src="{{asset('assets/js/dataTables.buttons.min.js')}}"></script>
+    <script src="{{asset('assets/js/buttons.flash.min.js')}}"></script>
+    <script src="{{asset('assets/js/buttons.html5.min.js')}}"></script>
+    <script src="{{asset('assets/js/buttons.print.min.js')}}"></script>
+    <script src="{{asset('assets/js/buttons.colVis.min.js')}}"></script>
+  
+    <script src="{{asset('assets/js/ace-elements.min.js')}}"></script>
+    <script src="{{asset('assets/js/ace.min.js')}}"></script>
+    <script type="text/javascript">
+        
+        $('.beat_modal_details').click(function() {
+            var user_id = $(this).attr('user_id');
+            var l7_id = $(this).attr('l7_id');
+            var dealer_id = $(this).attr('dealer_id');
+          // alert(user_id);
+            var template = '';
+           
+            $('.mytbody_beat_details').html('');
+            
+            if (user_id != '') 
+            {
+                $.ajaxSetup({
+                    headers: {
+                        'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
+                    }
+                });
+                $.ajax({
+                    type: "POST",
+                    url: domain + '/get_user_assign_retailer',
+                    dataType: 'json',
+                    data: "user_id=" + user_id+"&dealer_id="+dealer_id+"&l7_id="+l7_id,
+                    success: function (data) 
+                    {
+                        if (data.code == 401) 
+                        {
+                           
+                        }
+                        else if (data.code == 200) 
+                        {
+                            var Sno = 1;
+                            var Sno2 = 1;
+                            $.each(data.result, function (u_key, u_value) {
+                                // console.log(u_value);
+                                    template += ('<tr><td>'+Sno+'</td><td>'+u_value.retailer_name+'</td><td>'+u_value.retailer_number+'</td></tr>');
+                                Sno++;
+                                
+                            });   
+                           
+                            $('.mytbody_beat_details').append(template);
+
+                            
+                        }
+
+                    },
+                    complete: function () {
+                        // $('#loading-image').hide();
+                    },
+                    error: function () {
+                    }
+                });
+            }       
+        });
+    </script>
+    <script type="text/javascript">
+        jQuery(function ($) {
+            //initiate dataTables plugin
+            var myTable =
+                    $('#dynamic-table')
+                    //.wrap("<div class='dataTables_borderWrap' />")   //if you are applying horizontal scrolling (sScrollX)
+                    .DataTable({
+                        bAutoWidth: false,
+                        "aoColumns": [
+                            {"bSortable": false},
+                             null,null,null,null,null,null,null,null,null,
+                            {"bSortable": false}
+                        ],
+                        "aaSorting": [],
+                        "sScrollY": "300px",
+                        //"bPaginate": false,
+
+                        "sScrollX": "100%",
+                        //"sScrollXInner": "120%",
+                        "bScrollCollapse": true,
+                        "iDisplayLength": 50,
+
+
+                        select: {
+                            style: 'multi'
+                        }
+                    });
+
+
+
+            $.fn.dataTable.Buttons.defaults.dom.container.className = 'dt-buttons btn-overlap btn-group btn-overlap';
+
+            new $.fn.dataTable.Buttons(myTable, {
+                buttons: [
+                    {
+                        "extend": "colvis",
+                        "text": "<i class='fa fa-search bigger-110 blue'></i> <span class='hidden'>Show/hide columns</span>",
+                        "className": "btn btn-white btn-primary btn-bold",
+                        columns: ':not(:first):not(:last)'
+                    },
+                    {
+                        "extend": "copy",
+                        "text": "<i class='fa fa-copy bigger-110 pink'></i> <span class='hidden'>Copy to clipboard</span>",
+                        "className": "btn btn-white btn-primary btn-bold"
+                    },
+                    {
+                        "extend": "csv",
+                        "text": "<i class='fa fa-database bigger-110 orange'></i> <span class=''>CSV</span>",
+                        "className": "btn btn-white btn-primary btn-bold"
+                    },
+                    {
+                        "extend": "excel",
+                        "text": "<i class='fa fa-file-excel-o bigger-110 green'></i> <span class='hidden'>Export to Excel</span>",
+                        "className": "btn btn-white btn-primary btn-bold"
+                    },
+                    {
+                        "extend": "pdf",
+                        "text": "<i class='fa fa-file-pdf-o bigger-110 red'></i> <span class='hidden'>Export to PDF</span>",
+                        "className": "btn btn-white btn-primary btn-bold"
+                    },
+                    {
+                        "extend": "print",
+                        "text": "<i class='fa fa-print bigger-110 grey'></i> <span class='hidden'>Print</span>",
+                        "className": "btn btn-white btn-primary btn-bold",
+                        autoPrint: false,
+                        message: 'This print was produced using the Print button for DataTables'
+                    }
+                ]
+            });
+            myTable.buttons().container().appendTo($('.tableTools-container'));
+
+            //style the message box
+            var defaultCopyAction = myTable.button(1).action();
+            myTable.button(1).action(function (e, dt, button, config) {
+                defaultCopyAction(e, dt, button, config);
+                $('.dt-button-info').addClass('gritter-item-wrapper gritter-info gritter-center white');
+            });
+
+
+            var defaultColvisAction = myTable.button(0).action();
+            myTable.button(0).action(function (e, dt, button, config) {
+
+                defaultColvisAction(e, dt, button, config);
+
+
+                if ($('.dt-button-collection > .dropdown-menu').length == 0) {
+                    $('.dt-button-collection')
+                            .wrapInner('<ul class="dropdown-menu dropdown-light dropdown-caret dropdown-caret" />')
+                            .find('a').attr('href', '#').wrap("<li />")
+                }
+                $('.dt-button-collection').appendTo('.tableTools-container .dt-buttons')
+            });
+
+            ////
+
+            setTimeout(function () {
+                $($('.tableTools-container')).find('a.dt-button').each(function () {
+                    var div = $(this).find(' > div').first();
+                    if (div.length == 1)
+                        div.tooltip({container: 'body', title: div.parent().text()});
+                    else
+                        $(this).tooltip({container: 'body', title: $(this).text()});
+                });
+            }, 500);
+
+
+
+
+
+     /*       myTable.on('select', function (e, dt, type, index) {
+                if (type === 'row') {
+                    $(myTable.row(index).node()).find('input:checkbox').prop('checked', true);
+                }
+            });
+            myTable.on('deselect', function (e, dt, type, index) {
+                if (type === 'row') {
+                    $(myTable.row(index).node()).find('input:checkbox').prop('checked', false);
+                }
+            });
+
+
+
+
+            /////////////////////////////////
+            //table checkboxes
+            $('th input[type=checkbox], td input[type=checkbox]').prop('checked', false);
+
+            //select/deselect all rows according to table header checkbox
+            $('#dynamic-table > thead > tr > th input[type=checkbox], #dynamic-table_wrapper input[type=checkbox]').eq(0).on('click', function () {
+                var th_checked = this.checked;//checkbox inside "TH" table header
+
+                $('#dynamic-table').find('tbody > tr').each(function () {
+                    var row = this;
+                    if (th_checked)
+                        myTable.row(row).select();
+                    else
+                        myTable.row(row).deselect();
+                });
+            });
+
+            //select/deselect a row when the checkbox is checked/unchecked
+            $('#dynamic-table').on('click', 'td input[type=checkbox]', function () {
+                var row = $(this).closest('tr').get(0);
+                if (this.checked)
+                    myTable.row(row).deselect();
+                else
+                    myTable.row(row).select();
+            });
+*/
+
+
+            $(document).on('click', '#dynamic-table .dropdown-toggle', function (e) {
+                e.stopImmediatePropagation();
+                e.stopPropagation();
+                e.preventDefault();
+            });
+
+
+
+            //And for the first simple table, which doesn't have TableTools or dataTables
+            //select/deselect all rows according to table header checkbox
+            var active_class = 'active';
+            $('#simple-table > thead > tr > th input[type=checkbox]').eq(0).on('click', function () {
+                var th_checked = this.checked;//checkbox inside "TH" table header
+
+                $(this).closest('table').find('tbody > tr').each(function () {
+                    var row = this;
+                    if (th_checked)
+                        $(row).addClass(active_class).find('input[type=checkbox]').eq(0).prop('checked', true);
+                    else
+                        $(row).removeClass(active_class).find('input[type=checkbox]').eq(0).prop('checked', false);
+                });
+            });
+
+            //select/deselect a row when the checkbox is checked/unchecked
+            $('#simple-table').on('click', 'td input[type=checkbox]', function () {
+                var $row = $(this).closest('tr');
+                if ($row.is('.detail-row '))
+                    return;
+                if (this.checked)
+                    $row.addClass(active_class);
+                else
+                    $row.removeClass(active_class);
+            });
+
+
+
+            /********************************/
+            //add tooltip for small view action buttons in dropdown menu
+            $('[data-rel="tooltip"]').tooltip({placement: tooltip_placement});
+
+            //tooltip placement on right or left
+            function tooltip_placement(context, source) {
+                var $source = $(source);
+                var $parent = $source.closest('table')
+                var off1 = $parent.offset();
+                var w1 = $parent.width();
+
+                var off2 = $source.offset();
+                //var w2 = $source.width();
+
+                if (parseInt(off2.left) < parseInt(off1.left) + parseInt(w1 / 2))
+                    return 'right';
+                return 'left';
+            }
+
+
+
+
+            /***************/
+            $('.show-details-btn').on('click', function (e) {
+                e.preventDefault();
+                $(this).closest('tr').next().toggleClass('open');
+                $(this).find(ace.vars['.icon']).toggleClass('fa-angle-double-down').toggleClass('fa-angle-double-up');
+            });
+            
+
+        })
+    </script>

@@ -1,0 +1,549 @@
+<?php if (!defined('BASE_URL')) die('direct script access not allowed');?>
+<?php 
+$forma = 'Primary Stock Details'; // to indicate what type of form this is
+$formaction = $p;
+$myobj = new primary_sale();
+$primary_sale = new dealer_sale();
+$cls_func_str = 'primary_sale_order'; //The name of the function in the class that will do the job
+$myorderby = 'user_primary_sales_order.created_date DESC'; // The orderby clause for fetching of the data
+$myfilter = 'user_primary_sales_order.id ='; //the main key against which we will fetch data in the get_item_category_function
+$loc_level = $_SESSION[SESS.'constant']['location_level'];
+//Getting the user credentials for this page access
+$auth = user_auth($dbc, $_SESSION[SESS.'data']['id'], $formaction);
+$userid = $_SESSION[SESS.'data']['id'];
+$sesId =  $_SESSION[SESS.'sess']['sesId'];
+$role_id = $_SESSION[SESS.'data']['urole'];
+$dealer_id =  $_SESSION[SESS.'data']['dealer_id'];
+
+//Getting the user credentials for this page access
+$auth = user_auth($dbc, $_SESSION[SESS.'data']['id'], $formaction);
+$user_data = $primary_sale->get_dsp_wise_user_data($dealer_id);
+?>
+  <div id="breadcumb"><a href="#">Primary Stock Details</a> &raquo; <a href="index.php?option=<?php echo $formaction; ?>" style="color:#2dcf5f;"><?php echo $forma;?></a> <span id="ajaxloader"><img src="images/ajaxloader.gif" /> Loading...</span>
+<?php //if(!(isset($_GET['showmode']) && $_GET['showmode'] == 1)) require_once('breadcum/party.php');  ?>
+ </div>
+<?php
+stop_page_view($auth['view_opt']); // checking the user current page view
+
+############################# code for checking of submitted form data starts here data starts here ########################
+function checkform($mode='add', $id='')
+{
+	global $dbc;
+	if($mode == 'filter') 
+	return array(TRUE, '');
+	/*$field_arry = array('partyname' => $_POST['partyname']);// checking for  duplicate Unit Name
+	if($mode == 'add')
+	{
+		if(uniqcheck_msg($dbc,$field_arry,'party', false, " ptype=1"))
+			return array(FALSE, '<b>Vendor</b> already exists, please provide a different value.');
+	}
+	elseif($mode == 'edit')
+	{
+		if(uniqcheck_msg($dbc,$field_arry,'party', false," partyId != '$_GET[id]' AND ptype = 1"))
+			return array(FALSE, '<b>Vendor</b> already exists, please provide a different value.');
+	}*/
+	return array(TRUE, '');
+}
+
+############################# code for SAVING data starts here ########################
+if(isset($_POST['submit']) && $_POST['submit'] == 'Save')
+{
+	if(valid_token($_POST['hf'])) // checking if post value is same as timestamp stored in session during form load
+	{
+		//calculating the user authorisastion for the operation performed, function is defined in common_function
+		list($checkpass, $fmsg) = user_auth_msg($auth['add_opt'], $operation = 'add', $id = '');		
+		if($checkpass)
+		{
+			// triming and stripslashing post data if required and also passing it through mysqli_real_escape_string
+			magic_quotes_check($dbc, $check=true);
+			$funcname = $cls_func_str.'_save'; 
+			
+			$action_status =  $myobj->$funcname(); // $myobj->item_category_save()
+			if($action_status['status'])
+			{
+				echo '<span class="asm">'.$action_status['myreason'].'</span>';
+				//show_row_change(BASE_URL_A.'?option='.$formaction, $action_status['rId']);
+				unset($_POST);
+				/*echo'<script type="text/javascript">ajax_refresher(\'vendorId\', \'getvendor\', \'\');</script>';*/
+				//unset($_SESSION[SESS.'securetoken']); 		
+			}
+			else
+				echo '<span class="awm">'.$action_status['myreason'].'</span>';
+		}
+		else
+			echo'<span class="awm">'.$fmsg.'</span>';
+	}
+	else
+		echo'<span class="awm">Please do not try to hack the system.</span>';
+}
+
+############################# code for editing starts here ########################
+if(isset($_POST['submit']) && $_POST['submit'] == 'Update')
+{
+	if(valid_token($_POST['hf'])) // checking if post value is same as timestamp stored in session during form load
+	{
+		//calculating the user authorisastion for the operation performed, function is defined in common_function
+		list($checkpass, $fmsg) = user_auth_msg($auth['add_opt'], $operation = 'edit', $id = $_POST['eid']);		
+		if($checkpass)
+		{
+			// triming and stripslashing post data if required and also passing it through mysqli_real_escape_string
+			magic_quotes_check($dbc, $check=true);
+			$funcname = $cls_func_str.'_edit';
+			$action_status = $myobj->$funcname($_POST['eid']); // $myobj->item_category_edit()
+			if($action_status['status'])
+			{
+				echo '<span class="asm">'.$action_status['myreason'].'</span>';				
+				//unset($_SESSION[SESS.'securetoken']); 
+				//show_row_change(BASE_URL_A.'?option='.$formaction, $_POST['eid']);
+				unset($_POST);
+			}
+			else
+				echo '<span class="awm">'.$action_status['myreason'].'</span>';
+		}
+		else
+			echo'<span class="awm">'.$fmsg.'</span>';
+	}
+	else
+		echo'<span class="awm">Please do not try to hack the system.</span>';
+}
+
+############################# code to get the stored info for editing starts here ########################
+if(isset($_GET['mode']) && $_GET['mode'] == 1)
+{
+	if(isset($_GET['id']) && is_numeric($_GET['id']))
+	{
+		$id = $_GET['id'];
+		//This will containt the pr no, pr date and other values
+		$funcname = 'get_'.$cls_func_str.'_list';
+		$mystat = $myobj->$funcname($filter="$myfilter'$id'",  $records = '', $orderby=''); // $myobj->get_item_category_list()
+                //pre($mystat);
+		if(!empty($mystat))
+		{
+			//geteditvalue_class($eid=$id, $in = $mystat, $labelchange=array(), $options)
+			geteditvalue_class($eid=$id, $in = $mystat);
+			//This will create the post multidimensional array
+			//create_multi_post($mystat[$id]['pr_item'], array('itemId'=>'itemId', 'qty'=>'qty'));
+			$heid = '<input type="hidden" name="eid" value="'.$id.'" />';
+		}
+		else
+			echo '<span class="awm">Sorry, no such '.$forma.' found.</span>';
+	}									 
+}
+############################# Code to handle the user search starts here ###############################
+$rs = array();
+$filterused = '';
+$funcname = 'get_'.$cls_func_str.'_list';
+$mymatch['datepref'] = array('podate'=>'PO Date', 'created'=>'Created');
+if(isset($_POST['filter']) && $_POST['filter'] == 'Filter')
+{
+	if(valid_token($_POST['hf'])) // checking if post value is same as timestamp stored in session during form load
+	{
+		//calculating the user authorisastion for the operation performed, function is defined in common_function
+		list($checkpass, $fmsg) = checkform('filter');	
+		if($checkpass)
+		{
+			// triming and stripslashing post data if required and also passing it through mysqli_real_escape_string
+			magic_quotes_check($dbc, $check=true);
+			$filter = array();
+			$filterstr = array();
+			if(!empty($_POST['from_date'])){
+				$start = get_mysql_date($_POST['from_date'],'/',$time = false, $mysqlsearch = true);
+				$filter[] = "DATE_FORMAT(`sale_date`,'".MYSQL_DATE_SEARCH."') >= '$start'";
+				$filterstr[] = '<b>Start : </b>'.$_POST['from_date'];
+			}
+			if(!empty($_POST['to_date'])){
+				$end = get_mysql_date($_POST['to_date'],'/',$time = false, $mysqlsearch = true);
+				$filter[] = "DATE_FORMAT(`sale_date`,'".MYSQL_DATE_SEARCH."') <= '$end'";
+				$filterstr[] = '<b>End : </b>'.$_POST['to_date'];
+                                 
+			}
+                        if(!empty($_POST['order_no'])){
+				$filter[] = "order_id = '$_POST[order_no]'";
+				$filterstr[] = '<b>Order No  : </b>'.$_POST['order_no'];
+			}
+                       
+                         //pre($user_data);
+//                         if(!empty($user_data)){
+//                            $user_data_str = implode(',' , $user_data);
+//                            $filter[] = "created_person_id IN ($user_data_str)";
+//                            
+//                        }
+                        $filter[] = "dealer_id = '{$_SESSION[SESS.'data']['dealer_id']}'";
+			$filterused = implode($filterstr, '<span style="margin: 0 10px;">|</span>');			
+		    $rs = $myobj->$funcname($filter,  $records = '', $orderby ="ORDER BY $myorderby"); // $myobj->get_item_category_list()
+			if(empty($rs))
+				echo '<span class="awm">Sorry, <strong>no record</strong> found.</span>';
+		}
+		else
+			echo'<span class="awm">'.$fmsg.'</span>';
+	}
+	else
+		echo'<span class="awm">Please do not try to hack the system.</span>';
+}elseif(isset($_GET['ajaxshow']) || isset($_GET['ajaxshowblank'])){
+	$ajaxshowid = isset($_GET['ajaxshow']) ? $_GET['ajaxshow'] : $_GET['ajaxshowblank'];
+	$rs = $myobj->$funcname($filter="$myfilter'$ajaxshowid'",  $records = '', $orderby='');
+}
+else {
+           // $user_data_str = implode(',' , $user_data);
+            $filter = "dealer_id = '{$_SESSION[SESS.'data']['dealer_id']}'";
+            
+            $rs = $myobj->$funcname($filter,  $records = '', $orderby ="ORDER BY $myorderby");
+}
+dynamic_js_enhancement();
+?>
+
+<div id="workarea">
+  <?php if(isset($_GET['showmode']) && $_GET['showmode'] == 1){ // to show the form when and only when needed?>
+ <form method="post" action="<?php if(isset($eformaction)) echo  $eformaction; ?>" class="iform" name="genform" onsubmit="return checkForm_alert('genform');">
+      <fieldset>
+        <legend class="legend" style=""><?php echo $forma; ?></legend>
+        <input type="hidden" name="hf" value="<?php echo $securetoken;?>" />	
+        <table width="100%" border="0" cellspacing="2" cellpadding="2" class="tableform">
+            <tr>
+<!--                <td><strong>Dealer</strong><span class="star">*</span><br>
+                <?php 
+               //  if(isset($_SESSION[SESS.'data']['company_id']) && $_SESSION[SESS.'data']['company_id'] == 1) {
+                         $dealer_name = myrowval ('dealer', 'name', "id = '{$_SESSION[SESS.'data']['dealer_id']}'");
+                          echo '<input type="text" value="'.$dealer_name.'">
+                               <input type="hidden" id="dealer_id" name="dealer_id" value="'.$_SESSION[SESS.'data']['dealer_id'].'">';
+                         
+//                   } else {
+//                        $q = "SELECT partyId, partyname FROM party WHERE company_id = '{$_SESSION[SESS.'data']['company_id']}'  ORDER BY partyname ASC";
+//                        db_pulldown($dbc,'dealer_id',$q,true,true,'lang="dealer_id"'); 
+//                   }
+                 ?>
+                </td>-->
+                <td><span class="star">*</span>Company<br> 
+    <?php
+    $js_attr = ' lang="company" onchange="fetch_location(this.value, \'progress_div\', \'product_id\', \'company-catalog\');" ';
+    if (!isset($_POST['company_id'])) {
+        $q = 'SELECT id, name from company where id = 1';
+        db_pulldown($dbc, 'company_id', $q, TRUE, TRUE, $js_attr,'',1);
+    } else {
+        ?>
+        <select name="company_id" id="state_id" lang="company">
+            <option value="">== Please Select ==</option>
+        <?php
+        $q = 'select id,name FROM company ';
+        $st_res = mysqli_query($dbc, $q);
+        while ($row = mysqli_fetch_array($st_res)) {
+            ?>
+                                        <option value="<?php echo $row['id']; ?>" <?php if ($_POST['company_id'] == $row['id']) echo 'selected = "selected"' ?>><?php echo $row['name'] ?></option>
+            <?php
+        }
+        ?>
+                                </select>
+                            <?php } //echo $q;
+                            ?>
+                        </td>
+<!--                <td><strong>User</strong><br>
+                    <select name="created_person_id" id="user_id">
+                        <option>== Please Select ==</option>
+                <?php 
+                 if(!empty($user_data)){
+                     $user_data_str = implode(',' , $user_data);
+                     $q = "SELECT id, CONCAT_WS(' ', first_name, middle_name,last_name) AS name FROM person WHERE id IN ($user_data_str)";
+                     $selected = '';
+                     if(isset($heid)) $selected = $_POST['created_person_id'];
+                     echo option_builder($dbc, $q, $selected);
+                 }
+                 ?>
+                    </select>
+                </td>-->
+                </td>
+                <td><strong>Receive date</strong><br>
+                    <input type="text" id="podate" name="receive_date"  value="<?php if(isset($_POST['receive_date'])) echo $_POST['receive_date']; else echo date('d/m/Y'); ?>"  class="qdatepicker" />
+                </td>
+                
+                </td>
+               
+                <td><strong>Challan date</strong><br>
+                   
+                      <input type="text" class="datepicker"  name="ch_date"  value="<?php if(isset($_POST['ch_date'])) echo $_POST['ch_date'];  ?> "  />
+                 </td>
+                 <td><strong>CSA Name</strong><br>
+                     <?php
+                 echo   $q = 'SELECT c_id, csa_name from csa INNER JOIN dealer ON csa.c_id=dealer.csa_id where dealer.id='.$_SESSION[SESS.'data']['dealer_id'];
+        db_pulldown($dbc, 'csa_id', $q, TRUE, TRUE,'','','');
+        ?>
+                  </td>
+                  <td><strong>Challan Number</strong><br>
+                    <input type="text" id="podate" name="challan_no"  value="<?php if(isset($_POST['challan_no'])) echo $_POST['challan_no'] ; ?>"   />
+                </td>
+            </tr>
+<tr>
+     <td colspan="5"><div class="subhead1">Order Detail</div></td>
+         </tr>
+         <tr>
+           <td colspan="4">
+             <!-- table to capture the address field starts -->
+             <div id="progdiv"></div>
+             <div id="ss">
+             <table width="100%"  id="mytable">
+               <tr class="thead" style="font-weight:bold;">
+                 <td>S.No</td>
+                 <td>Product</td>
+<!--                 <td>Batch No</td>-->
+                 <td>M.R.P</td>
+<!--                 <td>Sale Rate</td>-->
+                 <td>Qty.(in pieces)</td>
+                 <td>Purchase Inv.Details</td>
+                 <td>Mfg Date.<br><span class="example">(dd/mm/yyyy)</span></td>
+                 <td>Expire Date<br><span class="example">(dd/mm/yyyy)</span></td>
+                 <td style="width:40px;">&nbsp;</td>
+               </tr>
+          <?php if(!isset($heid)) { ?>
+               <tr class="tdata">
+                 <td class="myintrow">1</td>
+                 <td>
+                  
+ <?php 
+                     db_pulldown($dbc , 'product_id[]', "SELECT catalog_product.id,catalog_product.name FROM catalog_product INNER JOIN catalog_2 ON catalog_product.catalog_id = catalog_2.id ",TRUE,TRUE,' id="product_id" onchange=getajaxdata(\'get_mrp_product\',\'mytable\',event);'); ?>
+                
+                 </td>
+<!--                 <td>
+                     <input type="text" name="batch_no[]"  value=""  />
+                 </td>-->
+                  <td>
+             	   <input type="text" name="base_price[]"  value=""  />
+                 </td>
+               
+<!--                 <td>
+             	   <input type="text" name="sale_price[]"  value=""  />
+                 </td>-->
+                 <td>
+                     <input type="text" name="quantity[]" lang="quantity" placeholder="In Pieces"  value=""  />
+                 </td>
+                  <td>
+             	   <input type="text" name="purchase_inv[]"  value=""  />
+                 </td>
+                  <td>
+                      <input type="text" class="datepicker"  name="mfg_date[]"  value=""  />
+                 </td>
+                  <td>
+                      <input type="text" class="datepicker"  name="expiry_date[]"  value=""  />
+                 </td>
+                 
+                 <td><img  title="more" src="images/more.png" onclick="javascript:addmore22('mytable', event,'');"/></td>
+               </tr>
+          <?php } else { 
+              $inc = 1;
+            //  pre($_POST['order_item']);
+              foreach ($_POST['order_item'] as $inkey=>$invalue) { ?>
+                <tr class="tdata">
+                 <td class="myintrow">1</td>
+                 <td>
+                   <?php 
+                      db_pulldown($dbc , 'product_id[]', "SELECT id,name FROM catalog_product ",TRUE,TRUE,' id ="product_id" onchange=getajaxdata(\'get_mrp_product\',\'mytable\',event);', '', $invalue['product_id']); ?>
+                 </td>
+<!--                 <td>
+             	   <input type="text" name="batch_no[]"  value="<?php echo $invalue['batch_no']; ?>"  />
+                 </td>-->
+                  <td>
+             	   <input type="text" name="base_price[]"  value="<?php echo $invalue['rate']; ?>"  />
+                 </td>
+               
+<!--                 <td>
+             	   <input type="text" name="base_price[]"  value="<?php echo $invalue['rate']; ?>"  />
+                 </td>-->
+                 <td>
+                     <input type="text" name="quantity[]" lang="quantity"  value="<?php echo $invalue['quantity']; ?>"  />
+                 </td>
+                  <td>
+                     <input type="text" name="purchase_inv[]" lang="purchase_inv"  value="<?php echo $invalue['purchase_inv']; ?>"  />
+                 </td>
+                  <td>
+                      <input type="text" class="datepicker"  name="mfg_date[]"  value="<?php echo $invalue['mfg_date']; ?>"  />
+                 </td>
+                  <td>
+                      <input type="text" class="datepicker"  name="expiry_date[]"  value="<?php echo $invalue['expiry_date']; ?>"  />
+                 </td>
+                 
+                 <td><img  title="more" src="images/more.png" onclick="javascript:addmore22('mytable', event,'');"/></td>
+               </tr>
+          <?php } 
+          } ?>
+               <tr><td colspan="9">&nbsp;</td></tr>
+             </table>
+             </div>
+             <!-- table to capture the address field ends -->
+           </td>
+         </tr>
+         <tr>
+             <td colspan="4" align="center">
+                  <?php //form_buttons(); // All the form control button, defined in common_function?>
+            <input id="mysave" type="submit" name="submit" value="<?php if(isset($heid)) echo'Update'; else echo'Save';?>" />
+			<?php if(isset($heid)){ echo $heid; //A hidden field name eid, whose value will be equal to the edit id.?>
+            <input onclick="window.document.location = 'index.php?option=<?php echo $formaction; ?>&showmode=1';" type="button" value="New" title="add new <?php echo $forma;?>" />  
+            <input onclick="parent.$.fn.colorbox.close();" type="button" value="Exit" /> <br />
+            <?php edit_links_via_js($id, $jsclose=true, $options=array());?>            
+			<?php }else{?>
+            <input onclick="parent.$.fn.colorbox.close();" type="button" value="Close" />
+            <?php }?>
+             </td>
+         </tr>
+        </table>
+      </fieldset>
+ </form>
+ <?php }else{//if(isset($_GET['showmode']) && $_GET['showmode'] == 1){ ends here ?>
+ <form method="post" action="<?php if(isset($eformaction)) echo  $eformaction; ?>" class="iform" name="genform1" onsubmit="return checkForm('genform1');">
+       <table width="100%" border="0" cellspacing="2" cellpadding="2">
+         <tr id="mysearchfilter">
+           <td>
+             <!-- this table will contain our form filter code starts -->
+	      <fieldset>
+               <legend class="legend">Search <?php echo $forma;?></legend>
+               <input type="hidden" name="hf" value="<?php echo $securetoken;?>" />
+             <table>
+               <tr>
+                <td>Order No<br />
+                    <input type="text" class="order_id"  name="order_no" class="order" value="<?php if(isset($_POST['order_no'])) echo $_POST['order_no'];?>" /> 
+                </td>
+                <td>From Date<br />
+                    <input type="text" name="from_date" id="fdate" class="datepicker" value="<?php if(isset($_POST['from_date'])) echo $_POST['from_date']; else  echo date('d/M/Y');?>" />
+                </td>
+                 <td>To Date<br />
+                     <input type="text" id="tdate" name="to_date" class="datepicker" value="<?php if(isset($_POST['to_date'])) echo $_POST['to_date']; else echo date('d/M/Y');?>" />
+                </td>                
+                 <td>
+                  <input id="mysave" type="submit" name="filter" value="Filter" />
+                  <input onclick="window.document.location = 'index.php?option=<?php echo $formaction; ?>';" type="button" value="Close" />
+                  <input onclick="$.colorbox({href:'index.php?option=<?php echo $formaction; ?>&showmode=1', iframe:true, width:'95%', height:'95%'});" type="button" value="New" title="add new <?php echo $formaction; ?>" />
+                </td>
+              </tr>
+             </table>
+             </fieldset>
+            <!-- this table will contain our form filter code ends -->           
+           </td>
+         </tr>
+	<?php
+    if(isset($_GET['ajaxshowblank'])) ob_end_clean(); // to show the first row when parent table not avialable
+    if(!empty($rs)){ //if no content available present no need to show the bottom part
+       
+    ?>
+    	  <tr>
+            <td>
+              <div class="subhead1"><!-- this portion indicate the print options -->
+                <a href="javascript:printing('searchlistdiv');" title="take a printout" style="margin:0 10px;"><img src="./icons/print.png" /></a>
+                <a href="javascript:pdf('searchlistdiv');" title="save as pdf document" style="margin-right:10px;"><img src="./icons/pdf.png" /></a>
+                <?php echo $forma; ?> List
+              </div>
+            </td>
+          </tr>	
+          <tr>
+            <td>            
+              <?php
+	    ########################## pagination details fetch starts here ###################################
+              //pre($rs);
+              $pgoutput = get_pagination_details($rs);
+              echo $pgoutput['loader'];
+              foreach($pgoutput['temp_result'] as $key=>$value){
+                 $rs = $value; 	 
+                 echo'<div class="mypages" id="mypages'.$key.'" style="display:none;">';
+			  ########################## pagination details fetch ends here ###################################
+			  $inc = 1+($key-1)*PGDISPLAY;
+			  $lastinc = (($inc+PGDISPLAY-1) > $pgoutput['totrecords']) ? $pgoutput['totrecords'] : ($inc+PGDISPLAY-1);
+			  ?>	 
+
+                <div class="searchlistdiv" id="searchlistdiv"> 
+                <div class="myprintheader"><b><?php echo $forma; ?> : <span id="totCounter"><?php echo $pgoutput['totrecords']; ?></span></b>
+                <span class="example">(Showing result : <strong><?php echo $inc;?> to <?php echo $lastinc;?></strong> <!--out of <strong><?php echo $pgoutput['totrecords']; ?></strong>-->)</span>
+                <br /><?php echo $filterused; ?></div> 
+                  <table width="100%" border="0" class="searchlist" id="searchdata">
+                    <caption><h3>Available <?php echo $forma; ?> list</h3></caption>
+                    <tr class="search1tr">
+                      <td rowspan="2" class="sno">S.No</td>
+                      <td rowspan="2">Date</td>
+<!--                      <td rowspan="2">Person Name</td>
+                      <td rowspan="2">Dealer Name</td>-->
+                      <td rowspan="2">Purchase Challan No</td>
+                      <td rowspan="2">CSA Name</td>
+                      <td align="center" colspan="5">Order Details</td>
+                      <td rowspan="2" class="options">Options</td>
+                    </tr>
+                     <tr class="search1tr">
+                        <td style="border:none;width: 120px;">Product Name</td>
+                        <td style="border:none;width: 120px;">Rate</td>
+                        <td style="border:none;width: 120px;">Quantity</td>
+                        <td style="border:none;width: 120px;">Purchase_Inv.</td>
+                        <td style="border:none;width: 120px;">Total Sale Value</td>
+                        
+                    </tr>
+                  <?php 
+                  $bg = TR_ROW_COLOR1;
+                  //$inc = 1;
+                  if(isset($_GET['ajaxshow'])) ob_end_clean(); // to help refresh a single row
+                  foreach($rs as $key=>$rows)
+                  {
+                      $bg=($bg==TR_ROW_COLOR1?TR_ROW_COLOR2:TR_ROW_COLOR1);// to provide different row colors(member_contacted table)
+                      $uid = $rows['id'];
+                      $uidname = $rows['order_id'];
+                      $editlink = '<a class="iframef" href="index.php?option='.$formaction.'&showmode=1&mode=1&id='.$uid.'"><img src="./images/b_edit.png"></a>&nbsp;&nbsp;';
+                      
+                      $deletelink = '<span class="Seperator">|</span> &nbsp;&nbsp;<a href="javascript:void(0);" onclick="do_delete(\'Sale Delete\', \''.$uid.'\',\'Sale Order\',\''.addslashes($uidname).'\');"><img src="./images/b_drop.png"></a>';
+                     echo'
+                      <tr  BGCOLOR="'.$bg.'" id="tr'.$uid.'" class="ihighlight">
+                        <td style=" display: table-cell; vertical-align: top;"  class="myintrow myresultrow">'.$inc.'</td>
+                        <td style=" display: table-cell; vertical-align: top;" >'.$rows['fdated'].'</td>
+                      <!--  <td><strong>'.$rows['person_name'].'</strong><div style="display:none" id="delDiv'.$uid.'"></div></td>
+                        <td style=" display: table-cell; vertical-align: top;">'.$rows['name'].'</td> -->
+                        <td style=" display: table-cell; vertical-align: top;">'.$rows['challan_no'].'</td>
+                            <td style=" display: table-cell; vertical-align: top;">'.$rows['csa_name'].'</td>
+                        <td  colspan="5">';
+                        echo'
+                        <table>';
+                    //pre($rows['order_item']);   
+                    $count_value = count($rows['order_item']);
+                    
+                    $total_sale_value = 0;
+                    if(!empty($rows['order_item']))
+                     {
+                        foreach($rows['order_item'] as $inkey=>$invalue){
+                            //$total_sale_value = $myobj->get_sale_value($invalue['catalog_1_id'],$invalue['metric_ton']);
+                            $total_sale_value=$invalue['rate']*$invalue['quantity'];
+                        echo'
+                        <tr>
+                          <td style="border:none; width:120px;">'.$invalue['name'].' '.$invalue['batch_no'].'</td>
+                          <td style="border:none;width:120px;">'.$invalue['rate'].'</td>
+                          <td style="border:none;width:120px;">'.$invalue['quantity'].'</td>
+                         <td style="border:none;width:120px;">'.$invalue['purchase_inv'].'</td> 
+                          <td style="border:none;width:120px;">'.my2digit($total_sale_value).'</td>
+                         
+                        </tr>';				
+                             }
+                     }
+                    else {
+                        echo'
+                        <tr>
+                          <td style="border:none; width:150px;">-</td>
+                          <td style="border:none;width:150px;">-</td>
+                          <td style="border:none;width:150px;">-</td>
+                          <td style="border:none;width:150px;">-</td>
+                          <td style="border:none;width:150px;">-</td>
+                        </tr>';	
+                    }
+                    
+                 echo'</table>';
+                     echo'</td>
+                       <td style=" display: table-cell; vertical-align: top;" class="options">'.$editlink.$deletelink.'</td>
+                      </tr>
+                      ';
+                      $inc++;
+                  }// foreach loop ends here
+                    if(isset($_GET['ajaxshow'])) exit(); // to help refresh a single row
+                  ?>
+                </table>                
+            </div> 
+              <?php echo'</div>';} // foreach($pgoutput['temp_result'] as $key=>$value){ ends?>           
+            </td>
+          </tr>
+          <?php } //if(!empty($rs)){?>
+          <?php if(isset($_GET['ajaxshowblank'])) exit(); // to show the first row when parent table not avialable ?>
+        </table>
+        <?php if(isset($pgoutput)) echo $pgoutput['pglinks']; // showing the paginataion links to the user?>
+      </fieldset>
+      </form>
+      <?php }//if(isset($_GET['showmode']) && $_GET['showmode'] == 1){ ends here?>
+      </div><!-- workarea div ends here -->
+      <script type="text/javascript">setfocus('name');</script>
+      <?php if(isset($pgoutput)) pagination_js($pgoutput);?>

@@ -1,0 +1,28 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<title>Untitled Document</title>
+<script type="text/javascript">
+
+if (/MSIE (\d+\.\d+);/.test(navigator.userAgent)){ //test for MSIE x.x;
+ var ieversion=new Number(RegExp.$1) // capture x.x portion and store as a number
+ if (ieversion>=9)
+  document.write("You're using IE9 or above")
+ else if (ieversion>=8)
+  document.write("You're using IE8 or above")
+ else if (ieversion>=7)
+  document.write("You're using IE7.x")
+ else if (ieversion>=6)
+  document.write("You're using IE6.x")
+ else if (ieversion>=5)
+  document.write("You're using IE5.x")
+}
+else
+ document.write("n/a")
+</script>
+</head>
+
+<body>
+</body>
+</html>

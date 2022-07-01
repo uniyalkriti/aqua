@@ -1,0 +1,147 @@
+@charset "utf-8";
+/* CSS Document */
+html{height:100%;}
+body{margin:0px; width:100%; padding:0px;  font-family:Verdana, Geneva, sans-serif; font-size:62.5%;}
+#header{background:#b3261f url(../images/headerbg.jpg) repeat-x top; height:60px; margin-top:0px;}
+#header .logo{color:#fff; font-size:2em; margin-top:-27px; margin-left:95px; font-weight:bold; font-variant:small-caps; font-family:"Times New Roman", Times, serif;}
+#header .branch{color:#193290; font-size:1em; font-weight:bold; position:absolute; top:33px; right:0px;}
+#header h1{margin-top:0px;}
+#wrapper{overflow:auto;}
+#container{padding:0 10px; background:url(images/bacnk.jpg) repeat-x ; background-position:center top; background-attachment:fixed; }
+
+#footer{background-color:#b3261f; height:30px; position:fixed; bottom:0; width:100%; min-width:1020px; }
+#footer p{color:#FFF; text-align:center; margin-top:10px;}
+#footer p a{color:#bfcbf4;}
+
+/* ###############################     css for login form starts here #######################   */
+/* css for login form starts here */
+form.lform{background-color:#f7e9e8; font-size:1.1em;}
+
+form.lform input[type="text"], input[type="password"]{-webkit-border-radius: 5px; -moz-border-radius:5px; -khtml-border-radius: 5px; border-radius: 5px; width:90%; border:1px solid #000000; font-family:Verdana, Geneva, sans-serif; color:#333; font-size:1em; padding:2px; height:1.5em;}
+
+form.lform input[type="text"]:focus, input[type="password"]:focus{border-color:#c5cadf;}
+
+/*form input[type="submit"]{ background-color:#ba403a; color:#f7e9e8; border:none; padding:3px; margin-right:20px; width:100px;
+ -webkit-border-radius: 5px; -moz-border-radius: 5px; -khtml-border-radius: 5px; border-radius: 5px; }
+#workarea .disabled{ background-color:#AAA; color:#e2e6f5; border:none; padding:3px; margin-right:20px; width:100px;
+ -webkit-border-radius: 5px; -moz-border-radius: 5px; -khtml-border-radius: 5px; }
+ 
+form input[type="button"]{ background-color:#ba403a; color:#e2e6f5; border:none; padding:3px; margin-right:20px; width:100px;
+ -webkit-border-radius: 5px; -moz-border-radius: 5px; -khtml-border-radius: 5px; border-radius: 5px; }*/
+/* ###############################     css for login form ends here   #######################   */
+
+/* ###############################     css for menu starts here   #######################   */
+div#menu {
+    margin:1px 10px;
+    width:80%;
+}
+/* ###############################     css for menu ends here   #######################   */
+
+input[type="submit"]:hover{background-color:#bc150d;}
+input[type="button"]:hover{background-color:#bc150d;}
+
+.legend{background-color:#e7e9ea; color:#63696c; border:1px solid #63696c; padding:2px;}
+.legend12{background-color:#e7e9ea; color:#63696c; border:1px solid #63696c; padding:2px; font-size:12px;}
+.subhead1{background-color:#d3d6cb; color:#7a7c75; border-bottom:1px solid #7a7c75; padding:2px 10px; border-left:1px solid #7a7c75; padding:2px 5px; display:block; font-style:italic; font-weight:bold;}
+
+/* css for meunu here */
+form.iform{/*background-color:#f6faea;*/ font-size:1.1em;}
+form.iform input[type="text"], input[type="password"]{-webkit-border-radius: 0px; -moz-border-radius:0px; -khtml-border-radius: 0px; border-radius: 0px; width:90%; border:1px solid #000000; font-family:Verdana, Geneva, sans-serif; color:#333; font-size:1em; padding:2px; height:1.5em; }
+form.iform select{-webkit-border-radius: 0px; -moz-border-radius:0px; -khtml-border-radius: 0px; border-radius:0px; width:90%; border:1px solid #000000; font-family:Verdana, Geneva, sans-serif; color:#333; font-size:1em; padding:2px; height:2em; }
+form.iform textarea{-webkit-border-radius: 0px; -moz-border-radius:0px; -khtml-border-radius: 0px; border-radius: 0px; width:98%; height:15%; border:1px solid #000000; font-family:Verdana, Geneva, sans-serif; color:#333; font-size:1em; padding:2px;}
+form.iform input[type="text"]:focus, input[type="password"]:focus, select:focus, textarea:focus{border-color:#c5cadf;}
+h1{margin:0px; color:#8f1015; font-size:1.8em; border-bottom:2px solid #8f1015; font-variant:small-caps;}
+
+#breadcumb{color:#fff; padding:0.9em; background-color:#337ab7; margin-bottom:1em;}
+#breadcumb a{color:#fff; text-decoration:none;}
+#breadcumb a:hover{color:#868b8d; text-decoration:underline;}
+#ajaxloader{margin-left:25%; color:#50bcee; font-weight:bold; display:none;}
+
+
+.star{color:#F00;}
+a img{border:none;}
+
+/* ###############################     css for error and success msg starts here   #######################   */
+/* absolute success message */
+.asm{border:#498D38 1px solid; font-family:Georgia, "Times New Roman", Times, serif; font-size:12px; color:#498D38; padding:5px; text-align:center; background: #E8FDEB left no-repeat; line-height:20px; position:absolute; top:2px; left:33%;}
+
+.grn_msg{border:#498D38 1px solid; font-family:Georgia, "Times New Roman", Times, serif; font-size:12px; color:#498D38; padding:5px; text-align:center; background: #E8FDEB left no-repeat; line-height:20px; position:absolute; top:2px; left:33%;z-index: 999999;}
+
+/* asolute warn message */
+.awm{border:#EE0B5A 1px solid; font-family:Georgia, "Times New Roman", Times, serif; font-size:12px; color:#871834; padding:3px; text-align:center; background:url(images/alert.gif) #FDEEF0 left no-repeat ; background-position:35px 3px; line-height:20px; position:absolute; top:60px; left:37%;}
+
+.warn{border:#EE0B5A 1px solid; font-family:Georgia, "Times New Roman", Times, serif; font-size:12px; color:#871834; padding:5px; text-align:center; margin:20px 40px 10px 40px; display:block; letter-spacing:1px; background:url(images/alert.gif) #FDEEF0 left no-repeat ; background-position:15px 3px;} /* added to show the warning message at the top of the form in if block, by deepak */
+.successmssg{border:#498D38 1px solid; font-family:Georgia, "Times New Roman", Times, serif; font-size:12px; color:#498D38; padding:5px; text-align:center; margin:20px 40px 10px 40px; display:block; letter-spacing:1px; background: #E8FDEB left no-repeat; line-height:20px;} /* added to show the success message at the top of the form, by deepak */
+.exclaim{border:#f5e699 1px solid; font-family:Georgia, "Times New Roman", Times, serif; font-size:12px; padding:5px; text-align:center; margin:5px; display:block; letter-spacing:1px; background:url(../images/exclaim.gif) #fff1a8 left no-repeat ; background-position:15px 3px;} /* added to show the warning message at the top of the form in if block, by deepak */
+
+.example{ font-size:10px; color:#999; font-style:italic;}/*added to show the forms field example */
+.error, .alert, .notice, .success, .info {padding:0.8em;margin-bottom:1em;border:2px solid #ddd;}
+.error, .alert {background:#fbe3e4;color:#8a1f11;border-color:#fbc2c4;}
+.notice {background:#fff6bf;color:#514721;border-color:#ffd324;}
+.success {background:#e6efc2;color:#264409;border-color:#c6d880;}
+.info {background:#d5edf8;color:#205791;border-color:#92cae4;}
+.error a, .alert a {color:#8a1f11;}
+.notice a {color:#514721;}
+.success a {color:#264409;}
+.info a {color:#205791;}
+/* ###############################     css for error and success msg ends here   #######################   */
+
+.incoming .moredetail{border:none; display:inline; margin:0; margin-left:10px; color:#E7A418; background-color:transparent; width:50px;}
+.incoming .moredetail:hover{background-color:transparent; color:green;}
+
+/* ###############################     css for search table starts here   #######################   */
+.searchlistdiv{padding-bottom:15px;}
+.searchlist{ border-collapse:collapse;}
+.searchlist tr td{text-align:left; padding-left:5px; padding-top:2px; padding-bottom:1px; border:1px solid #f5f5f5;}
+.searchlist caption{display:none;}
+.search1tr{background-color:#B84D4D; color:#FFF; font-weight:bold; height:30px;}
+.seperator{margin:0 5px;} /* this will seperation the icons in the option tab */
+.options{width:70px;}
+.sno{width:40px;}
+.printhide{background-color:#f2eaea;}
+/* ###############################     css for search table ends here   #######################   */
+
+/* the css to control the icons of the print, pdf, etc */
+#printcontrol {margin-bottom:10px;}
+#printcontrol img{border:none;}
+#printreportheader{display:none;}
+/* the css to control the icons of the print, pdf, etc */
+
+.example{ font-size:10px; color:#999; font-style:italic;}/*added to show the forms field example */
+
+#searchdata .tdclhyperlink{display:block; color:#333; font-family:Verdana, Geneva, sans-serif; text-decoration:none;}
+#searchdata .tdclhyperlink:hover{background-color:#FF0; color:#030; text-decoration:underline;}
+#searchdata tr.ihighlight:hover{background-color:#FF9;}
+
+/* .oneplaceoption class is used to display all the icons at one place like for master */
+.oneplaceoptiondiv{border:1px solid #82c0c7; margin:25px 12% 0 12%; padding:5px; background-color:#f5f9f9;} 
+.oneplaceoptiondiv p{border-bottom:2px solid #82c0c7; text-align:center; padding-bottom:5px; font-size:1.5em; font-weight:bold;}
+.oneplaceoption td{ text-align:center;}
+.oneplaceoption td:hover{ background-color:#f6fddc;}
+.oneplaceoption a{text-decoration:none; font-size:11px; display:block;}
+
+/* This is used in calculate salary to make all text box small */
+#frmtxt50 input[type="text"]{width:50px;}
+
+/* These property allow the creation of the page wise breaks */
+.break_before { page-break-before: always; }
+.break_after { page-break-after: always; }
+
+.hideheader{display:none;} /* To hide the repeating header and show it again in the print page*/
+.scrollbar {
+				height: 200px;
+				overflow: auto;
+				border: solid 1px #000;
+				padding: 5px;
+            }
+
+/* css for menu tab along the b readcum row */	
+#msgmenu{float:right; margin-top:-7px;}		
+#msgmenu ul.msgmenu{ margin:0; padding:0; list-style:none;} 
+#msgmenu ul.msgmenu li{ width:120px; background-color:#B84D4D; margin:0 5px; display:inline-block; text-align:center;}
+#msgmenu ul.msgmenu li a{ color:#852a21; display:block; padding:5px; text-decoration:none; font-size:11px; color:#FFF;}
+#msgmenu ul.msgmenu li a:hover{ color:#fff; background-color:#a13329;}
+
+
+.savebtn{cursor:pointer;background-color: #438eb9;width: 80px;color:white;height: 30px;border: 0;}
+.exitbtn{cursor:pointer;background-color: #8B9AA3;width: 80px;color:white;height: 30px;border: 0;}

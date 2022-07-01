@@ -1,0 +1,121 @@
+<?php
+// This class will handle all the task related to packing slip in and bill of packing slips
+class payment_enrollment extends myfilter
+{
+	public $poid = NULL;
+	
+	public function __construct()
+	{
+		parent::__construct();
+	}
+	
+	######################################## Department Starts here ####################################################	
+	public function get_payment_enrollment_se_data()
+	{  
+		$d1 = $_POST;
+                $d1['uid'] = $_SESSION[SESS.'data']['id']; 
+		$d1['myreason'] = 'Please fill all the required information';
+		$d1['what'] = 'payment'; //whether to do history log or not
+		return array(true,$d1);
+	}
+	
+	public function payment_enrollment_save()
+	{
+		global $dbc;	
+		$out = array('status'=>false, 'myreason'=>'');
+		list($status, $d1) = $this->get_payment_enrollment_se_data();
+		if(!$status) return array('status'=>false, 'myreason'=>$d1['myreason']);		
+		//start the transaction
+		mysqli_query($dbc, "START TRANSACTION");
+		// query to save
+                $pay_date = !empty($d1['pay_date']) ? get_mysql_date($d1['pay_date']) : '';
+               
+                if($d1['pay_mode'] == 'By Cash') {
+                    $amount = $d1['amount'];
+                    $bank_name = '';
+                    $cheque_number = '';
+                    $cheque_date = '';
+                    
+                }
+                else {
+                    $amount = $d1['amount'];
+                    $bank_name = $d1['bank_name'];
+                    $cheque_number = $d1['cheque_number'];
+                    $cheque_date = !empty($d1['cheque_date']) ? get_mysql_date($d1['cheque_date']) : '';
+                }
+		$q = "INSERT INTO `payment_enrollment` (`id`, `dealer_id`, `location_id`, `retailer_id`, `pay_mode`, `amount`, `bank_name`, `cheque_number`, `pay_date`,`cheque_date`, `user_id`,`pay_time`) VALUES (NULL , '$d1[dealer_id]', '$d1[location_id]','$d1[retailer_id]','$d1[pay_mode]','$amount','$bank_name','$cheque_number','$pay_date','$cheque_date','$d1[uid]',NOW())";
+		
+                $r = mysqli_query($dbc,$q) ;
+		if(!$r){mysqli_rollback($dbc); return array('status'=>false, 'myreason'=>'Payment table error');}
+		$rId = mysqli_insert_id($dbc);	
+		mysqli_commit($dbc);
+		//Logging the history		
+		//history_log($dbc, 'Add', 'Payment <b>'.$d1['deptcode'].'</b> with With RefCode : '.$rId, $d1['what']);
+		//Final success
+		return array('status'=>true, 'myreason'=>$d1['what'].' successfully Saved', 'rId'=>$rId);
+	}
+	
+	public function payment_enrollment_edit($id)
+	{
+		global $dbc;	
+		$out = array('status'=>false, 'myreason'=>'');
+		list($status, $d1) = $this->get_payment_se_data();
+		if(!$status) return array('status'=>false, 'myreason'=>'Please fill all the required information');
+		//Checking whether the original data was modified or not
+                 $pay_date = !empty($d1['pay_date']) ? get_mysql_date($d1['pay_date']) : '';
+		 if($d1['pay_mode'] == 'By Cash') {
+                    $amount = $d1['amount'];
+                    $bank_name = '';
+                    $cheque_number = '';
+                    $cheque_date = '';
+                }
+                else {
+                    $amount = $d1['amount'];
+                    $bank_name = $d1['bank_name'];
+                    $cheque_number = $d1['cheque_number'];
+                    $cheque_date = !empty($d1['cheque_date']) ? get_mysql_date($d1['cheque_date']) : '';
+                }
+		//start the transaction
+		mysqli_query($dbc, "START TRANSACTION");
+		// query to update 		
+		$q = "UPDATE `payment_enrollment` SET `dealer_id` = '$d1[dealer_id]', `retailer_id` = '$d1[retailer_id]',location_id = '$d1[location_id]', pay_mode = '$d1[pay_mode]',amount = '$d1[amount]',bank_name = '$bank_name',cheque_number = '$d1[cheque_number]',cheque_date = '$cheque_date',pay_date='$pay_date'  WHERE id = '$id'";
+		$r = mysqli_query($dbc,$q);
+		if(!$r){mysqli_rollback($dbc); return array('status'=>false, 'myreason'=>'Payment table error');}
+		mysqli_commit($dbc);
+		$rId = $id;
+		//Saving the user modification history
+		//$hid = history_log($dbc, 'Edit', 'department <strong>'.$d1['deptcode'].'</strong> With RefCode :'.$id);
+		//$this->save_log($hid, $modifieddata, $d1['what']);
+		return array('status'=>true, 'myreason'=>$d1['what'].' successfully updated', 'rId'=>$rId);
+	}	
+	
+	public function get_payment_enrollment_list($filter='',  $records = '', $orderby='')
+	{
+		global $dbc;
+		$out = array();		
+		// if user has send some filter use them.
+		$filterstr = $this->oo_filter($filter, $records, $orderby);
+		
+		$q = "SELECT *, CONCAT_WS(' ',first_name,last_name)as user,DATE_FORMAT(pay_date,'%e/%b/%Y') AS pay_date,DATE_FORMAT(cheque_date,'%e/%b/%Y') AS cheque_date FROM payment_enrollment INNER JOIN person ON person.id = payment_enrollment.user_id $filterstr ";
+                //h1($q);
+		list($opt, $rs) = run_query($dbc, $q, $mode='multi', $msg='');
+		if(!$opt) return $out; // if no order placed send blank array
+                $rlevel = $_SESSION[SESS.'constant']['retailer_level'];
+                $dealer_map = get_my_reference_array('dealer', 'id', 'name'); 
+                $retailer_map = get_my_reference_array('retailer', 'id', 'name'); 
+                $location_map = get_my_reference_array("location_$rlevel", 'id', 'name'); 
+                
+                //pre($location_map);
+		while($row = mysqli_fetch_assoc($rs))
+		{
+			$id = $row['id'];
+			$out[$id] = $row; 
+                        $out[$id]['dealer_name'] = $dealer_map[$row['dealer_id']];
+                        $out[$id]['retailer_name'] = $retailer_map[$row['retailer_id']];
+                        $out[$id]['location_name'] = $location_map[$row['location_id']];
+		}
+		return $out;
+	} 
+	
+}// class end here
+?>

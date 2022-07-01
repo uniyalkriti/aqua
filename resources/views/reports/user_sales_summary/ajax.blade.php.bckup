@@ -1,0 +1,167 @@
+@if(!empty($records))
+    <a onclick="fnExcelReport()" href="javascript:void(0)" class="nav-link">
+        <i class="fa fa-file-excel-o "></i> Export Excel</a>
+@endif
+<style>
+    #simple-table table {
+        border-collapse: collapse !important;
+    }
+
+    #simple-table table, #simple-table th, #simple-table td {
+        border: 1px solid black !important;
+    }
+
+    #simple-table th {
+        background-color: #7BB0FF !important;
+        color: black;
+    }
+</style>
+<table id="simple-table"  class="table table-bordered" style="width:100%; font-size: 13px;border: 1px black">
+    <tr><td colspan="9"><h3>STATE WISE SECONDARY SALES SUMMARY</h3></td></tr>
+    <tr class="info" style="color: black;">
+        <th>S.No.</th>
+        <th>Zone</th>
+        <th>State</th>
+        <th>Total Outlets Till ({{ date('Y-m-d') }})</th>
+        <th>New Outlets Added</th>
+        <th>PC</th>
+        <th>Secondary Sales (RV)</th>
+        <th>Total Users Till ({{ date('Y-m-d') }})</th>
+        <th>Total Active Users</th>
+    </tr>
+    <tbody>
+    <?php $i = 1;
+        $tc=0;
+        $pc=0;
+        $tq=0;
+        $tv=0;
+        $no=0;
+        $au=0;
+       
+           
+    ?>
+    @if(!empty($dsr))
+        @foreach($dsr as $key=>$data)
+        <?php
+ if(isset($data['active_user']->user_id)){
+          $active_user = $data['active_user']->user_id;
+        }
+        else {
+          $active_user = 0; 
+        }
+        $stateId = $data['l3_id'];
+        // $activeUser = "<a href="http://localhost/Test/Learning/plantedit.php?id='.$id.'" class="btn btn-warning" name = "edit" value ="edit" data-toggle="modal" data-target="#myModal4" >&#9998</a>";
+        ?>
+                <tr  class="">
+                    <td>{{$i}}</td>
+                    <td>{{$data['l1_name']}}</td>
+                    <td>{{$data['l3_name']}}</td>
+                    <td>{{ $data['total_outlet']->total_outlet }}</td>
+                    <td>{{$data['new_outlet']->new_outlet}}</td>
+                    <td>{{$data['pc']->pc}}</td>
+                    
+                    <td>{{$data['total_sale_value']->total_sale_value}}</td>
+                    <td><a title="Total Users" state_id="{{ $stateId }}" to_date="{{ $to_date }}" from_date="{{ $from_date }}" data-toggle="modal" flag="T" data-target="#myModal" class="user-modal">{{$data['total_user']->total_user}}</a></td>
+                    <td><a title="Active Users" flag="A" state_id="{{ $stateId }}" to_date="{{ $to_date }}" from_date="{{ $from_date }}" data-toggle="modal" data-target="#myModal" class="user-modal">{{ $active_user }}</a></td>
+                   
+                   
+                </tr>
+                <?php 
+                $tc+=$data['total_outlet']->total_outlet;
+                $no+=$data['new_outlet']->new_outlet;
+                $pc+=$data['pc']->pc;
+                $tq+=$data['total_user']->total_user;
+                $au+=$active_user;
+                $tv+=$data['total_sale_value']->total_sale_value;
+                $i++?>
+            @endforeach
+            <tr>
+                <th colspan="3">Grand Total</th>
+                <th>{{$tc}}</th>
+                <th>{{$no}}</th>
+                <th>{{$pc}}</th>
+                <th>{{$tv}}</th>
+                <th>{{$tq}}</th>
+                <th>{{$au}}</th>
+            </tr>
+    @endif
+
+    </tbody>
+</table>
+<!-- Modal -->
+<div class="modal fade" id="myModal" role="dialog">
+    <div class="modal-dialog" style="width:800px;">
+    
+    <!-- Modal content-->
+    <div class="modal-content">
+      <div class="modal-header">
+        <button type="button" class="close" data-dismiss="modal">&times;</button>
+        <h4 class="modal-title" >Active Users</h4>
+  
+      </div>
+      <div class="modal-body">
+            <table class="table table-bordered table-hover">
+                    <thead>
+                        <tr>
+                            <th>SNo.</th>
+                            <th>User Name</th>
+                            <th>Role</th>
+                            <th>Contact Number</th>
+                            <th>PC</th>
+                            <th>RV</th>
+                        </tr>
+                    </thead>
+                    <tbody class="mytbody">
+                    
+                    </tbody>
+                       </table>
+    </div>
+        </div>
+    
+    </div>
+        
+      </div>
+      <script>
+            $('.user-modal').click(function() {
+                  var state = $(this).attr('state_id'); 
+                  var from_date = $(this).attr('from_date'); 
+                  var to_date = $(this).attr('to_date'); 
+                  var flag = $(this).attr('flag'); 
+                  $('.mytbody').html('');
+                  if (state != '') {
+        $.ajaxSetup({
+            headers: {
+                'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
+            }
+        });
+        $.ajax({
+            type: "POST",
+            url: domain + '/get_active_user_sales',
+            dataType: 'json',
+            data: "id=" + state+"&from_date="+from_date+"&to_date="+to_date+"&flag="+flag,
+            success: function (data) {
+                
+                if (data.code == 401) {
+                    //  $('#loading-image').hide();
+                }
+                else if (data.code == 200) {
+                   var Sno = 1;
+                    $.each(data.user_data, function (key, value) {
+                        $('.mytbody').append("<tr><td>"+Sno+"</td><td>"+value.user_name+"</td><td>"+value.role_name+"</td><td>"+value.mobile+"</td><td>"+value.call_status+"</td><td>"+value.total_sale_value+"</td></tr>");
+                        Sno++;
+                    });
+                    // _user.empty();
+                    
+                }
+
+            },
+            complete: function () {
+                // $('#loading-image').hide();
+            },
+            error: function () {
+            }
+        });
+    }       
+            });
+     </script>
+      <!-- END MODAL -->

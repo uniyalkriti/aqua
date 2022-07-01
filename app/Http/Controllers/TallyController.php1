@@ -1,0 +1,122 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\_outletType;
+use App\Area;
+use App\Catalog1;
+use App\Claim;
+use App\competitorBrand;
+use App\CompetitorsPriceLog;
+use App\competitorsProduct;
+use App\DailyStock;
+use App\Dealer;
+use App\DealerLocation; 
+use App\DealerRetailer;
+use App\DistributorTarget;
+use App\Feedback;
+use App\Location1;
+use App\Location2;
+use App\Location6;
+use App\Location7;
+use App\Location3;
+use App\Location4;
+use App\Location5;
+use App\MonthlyTourProgram;
+use App\ReceiveOrder;
+use App\Retailer;
+use App\User;
+use App\UserDealerRetailer;
+use App\UserDetail;
+use App\UserExpenseReport;
+use App\UserSalesOrder;
+use App\Vendor;
+use App\CatalogProduct;
+use App\UsersDetail;
+use Illuminate\Http\Request;
+use DB;
+use DateTime;
+
+class TallyController extends Controller
+{
+     ##..............................Tally Report SS billing...........................................##
+    public function tallySsBillingReport(Request $request)
+    {
+        $state = $request->area;
+        $stockist = $request->stockist;
+        $from_date = $request->from_date;
+        $to_date = $request->to_date;
+        // dd($stockist);
+        $tally_query =  DB::table('tally_demo')->join('dealer','dealer.id','=','tally_demo.dealer_id')->join('csa','csa.c_id','=','tally_demo.csa_id')->join('location_view','location_view.l3_id','=','csa.state_id')->select('location_view.l3_name as state_name','tally_demo.id','ch_no','first_ch_no','ch_date','vocher_id','dealer.dealer_code','ss_voucher_id','tally_demo.csa_id as csa_id','csa.csa_code as csa_code','csa.csa_name as csa_name', 'dealer_id','dealer.name AS dname','invoice_type','location_view.l4_name as town_name')->whereRaw("DATE_FORMAT(tally_demo.ch_date,'%Y-%m-%d')>='$from_date' AND DATE_FORMAT(tally_demo.ch_date,'%Y-%m-%d')<='$to_date'")->whereRaw("(dealer.dealer_code != 'Dealer Code' OR dealer.dealer_code !='')")->groupBy('tally_demo.id')->orderBy('tally_demo.ch_no','DESC');
+
+        if(!empty($state))
+        {
+            $tally_query->whereIn('location_view.l3_id',$state);
+        }
+        if(!empty($stockist))
+        {
+            $tally_query->whereIn('csa.c_id',$stockist);
+        }
+        $tally_query_data = $tally_query->get();
+        // dd($tally_query_data);
+        
+        $out=[];
+
+        if(!empty($tally_query_data))
+        {   
+            foreach($tally_query_data as $Tkey => $Tvalue)
+            {
+                $tally_id= $Tvalue->id;
+                $out[$tally_id]=DB::table('tally_demo_details')->join('tally_catalog_product','tally_catalog_product.id','=','tally_demo_details.product_id')->select('tally_demo_details.id AS id', 'td_id', 'tally_demo_details.product_id as tall_demo_product_id', 'qty', 'rate', 'gst', 'gst_amt', 'dis_per', 'dis_amt', 'taxable_amt', 'item_for', 'tally_catalog_product.name AS pname')->where('td_id',$tally_id)->get();
+            }
+
+        }
+        // dd($out);
+        return view('reports.tally_ss_billing_report.ajax', [
+            'records' => $tally_query_data,
+            'details' => $out   
+        ]);
+    }
+    
+    ##..............................Tally Report SS billing Ends here..................................##
+    ##..............................Tally Report SS Closing Report.....................................##
+    // public function tallClosingReport(Request $request)
+    // {
+    //     $state_id = $request->state_id;
+    //     $from_date = $request->from_date;
+    //     $to_date = $request->to_date;
+
+    //     $closing_Query = DB::table('tally_opening_stock')->join('csa','csa.c_id','=','tally_opening_stock.csa_id')->join('tally_catalog_product','tally_catalog_product.id','=','tally_opening_stock.product_id')->join('location_view','location_view.l3__id','=','csa.state_id')->select('tally_opening_stock.opening AS apr_open','tally_opening_stock.id','csa_id','csa.csa_name as csa_name','csa.csa_code as csa_code','tally_opening_stock.product_id','tally_catalog_product.name as pname','from_date','to_date','server_date_time','location_view.l3_name','tally_catalog_product.itemcode as itemcode',)->where('csa.state_id',$state_id)->groupBy('tally_opening_stock.product_id')->orderBy('csa_name','pname')->get();
+
+    //     foreach ($closing_Query as $key => $value) {
+    //         $product_id = $value->product_id;
+    //         $id = $value->id;
+    //         $csa_id = $value->csa_id;
+    //         $out[$csa_id][$product_id][''] = 
+            
+    //     }
+    // }
+    ##..............................Tally Report SS Closing Report Ends here ..........................##
+    ##..............................Tally Report SS Stock Report ..........................##
+    public function tallySsStockReport(Request $request)
+    {
+        $state_id = $request->area;
+        $stockist = $request->stockist;
+        $from_date = $request->from_date;
+        $stock_Query = DB::table('tally_stock')->join('csa','csa.c_id','=','tally_stock.csa_id')->join('tally_catalog_product','tally_catalog_product.id','=','tally_stock.product_id')->join('location_3','location_3.id','=','csa.state_id')->select('tally_stock.id AS id','csa_id','csa.csa_name as csa_name','csa.csa_code','tally_stock.product_id as product_id','tally_catalog_product.name AS pname','from_date','to_date','opening','inward','outward','closing', 'server_date_time','location_3.name as l3_name')->whereRaw("DATE_FORMAT(from_date,'%Y-%m-%d')='$from_date'")->groupBy('id');
+        if($state_id)
+        {
+            $stock_Query->whereIn('location_3.id',$state_id);
+        }
+        if(!empty($stockist))
+        {
+            $stock_Query->whereIn('csa.c_id',$stockist);
+        }
+        $stock_data = $stock_Query->get();
+        return view('reports.tally_ss_stock_report.ajax', [
+            'records' => $stock_data,
+            // 'details' => $out   
+        ]);
+    }
+
+}

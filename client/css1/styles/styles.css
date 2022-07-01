@@ -1,0 +1,31 @@
+a img{border:0;}
+a {text-decoration:none;color:#fff;}
+
+
+a:focus{outline:none;} 
+.wrapper{ margin-top:250px; height:110px; width:160px; float:left; } 
+#Previewholder{
+	left:0;
+	top:0;
+	position:absolute;
+	display:none;
+	background:#fff;
+}
+#Previewholder img{
+	display:block; 
+}
+#Previewholder p{ 
+	margin:0;
+	padding:0; 
+	font:11px Verdana,sans-serif; 
+	color:#090808; 
+}
+#Previewholder p span{
+	border-top:1px solid #ccc;
+	display:block; 
+	padding:5px;   
+	background:transparent url(../images/desc_bg.gif) 0 100% no-repeat;
+}
+.marquee{
+filter: alpha(opacity=100);
+}

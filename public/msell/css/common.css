@@ -1,0 +1,21 @@
+.has-error, .help-block {
+    color: #a94442;
+}
+td{
+    text-align:center;
+    vertical-align:middle;
+}
+th{
+    text-align:center;
+    vertical-align:middle;
+}
+@media print {
+    .modal-content {
+        position: absolute;
+        left: 0;
+        top: 0;
+        margin: 0;
+        padding: 0;
+        overflow: visible!important;
+    }
+}

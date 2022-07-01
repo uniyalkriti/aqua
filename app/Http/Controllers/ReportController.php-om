@@ -1,0 +1,519 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\_module;
+use App\_role;
+use App\Competitor;
+use App\Dealer;
+use App\Location1;
+use App\Location2;
+use App\Location3;
+use App\Location4;
+use App\Location5;
+use App\Location6;
+use Illuminate\Http\Request;
+use DB;
+use Session;
+use App\Helpers\LocationArray;
+
+class ReportController extends Controller
+{
+    public function __construct()
+    {
+        $this->menu = _module::orderBy('module_sequence')->get()->load('submenu');
+        $this->current = 'Report';
+    }
+
+    /**
+     * @function: beatRoute
+     * @desc: index page of beat route
+     */
+    public function beatRoute(Request $request)
+    {
+        $locationArr = LocationArray::locationArr();
+        $town = Location4::where('status', 1)->orderBy('name', 'asc')->pluck('name', 'id');
+        $beat = Location5::where('status', 1)->orderBy('name', 'asc')->pluck('name', 'id');
+        $distributor = Dealer::where('dealer_status', 1)->orderBy('name', 'asc')->pluck('name', 'id');
+
+        $outlet = DB::table('_retailer_outlet_type')->where('status', 1)->orderBy('outlet_type', 'asc')->pluck('outlet_type', 'id');
+
+        return view('reports.beat-route', [
+            'belt' => $town,
+            'beat' => $beat,
+            'menu' => $this->menu,
+            'distributor' => $distributor,
+            'outlet' => $outlet,
+            'current_menu' => $this->current
+        ]);
+    }
+
+    /**
+     * @function: marketBeatPlan
+     * @desc: index page of Market Beat Plan
+     */
+    public function marketBeatPlan()
+    {
+        $belt = Location3::where('status', 1)->orderBy('name', 'asc')->pluck('name', 'id');
+        $town = Location4::where('status', 1)->orderBy('name', 'asc')->pluck('name', 'id');
+        $beat = Location5::where('status', 1)->pluck('name', 'id');
+        $distributor = Dealer::where('dealer_status', 1)->pluck('name', 'id');
+        return view('reports.market-beat-plan.market-beat-plan',
+            [
+                'belt' => $belt,
+                'beat' => $beat,
+                'town' => $town,
+                'distributor' => $distributor,
+                'menu' => $this->menu,
+                'current_menu' => $this->current
+            ]);
+    }
+
+    public function tourProgram()
+    {
+        $region = Location2::where('status', 1)->pluck('name', 'id');
+        $state = Location3::where('status', 1)->pluck('name', 'id');
+        $town = Location4::where('status', 1)->pluck('name', 'id');
+        $beat = Location5::where('status', 1)->pluck('name', 'id');
+        $distributor = Dealer::where('dealer_status', 1)->pluck('name', 'id');
+        $role = DB::table('_role')->pluck('rolename', 'role_id');
+        $user = DB::table('person')->select(DB::raw('CONCAT(person.first_name," ",person.last_name) as name'), 'person.id as uid')->pluck('name', 'uid');
+        return view('reports.tour-program.index',
+            [
+                'region' => $region,
+                'state' => $state,
+                'town' => $town,
+                'beat' => $beat,
+                'distributor' => $distributor,
+                'role' => $role,
+                'users' => $user,
+                'menu' => $this->menu,
+                'current_menu' => $this->current
+            ]);
+    }
+
+    /**
+     * @function: dailyAttendance
+     * @desc: daily attendance report
+     */
+    public function dailyAttendance()
+    {
+        $region = Location2::where('status', 1)->pluck('name', 'id');
+        $state = Location3::where('status', 1)->pluck('name', 'id');
+        $distributor = Dealer::where('dealer_status', 1)->pluck('name', 'id');
+        $user = DB::table('person')->select(DB::raw('CONCAT(person.first_name," ",person.last_name) as name'), 'person.id as uid')->pluck('name', 'uid');
+        return view('reports.daily-attendance.index',
+            [
+                'region' => $region,
+                'state' => $state,
+                'users' => $user,
+                'distributor' => $distributor,
+                'menu' => $this->menu,
+                'current_menu' => $this->current
+            ]);
+    }
+
+    public function dailyPerformance()
+    {
+        $region = Location2::where('status', 1)->pluck('name', 'id');
+        $state = Location3::where('status', 1)->pluck('name', 'id');
+        $town = Location4::where('status', 1)->pluck('name', 'id');
+        $beat = Location5::where('status', 1)->pluck('name', 'id');
+        $distributor = Dealer::where('dealer_status', 1)->pluck('name', 'id');
+        $role = DB::table('_role')->pluck('rolename', 'role_id');
+        $user = DB::table('person')->select(DB::raw('CONCAT(person.first_name," ",person.last_name) as name'), 'person.id as uid')->pluck('name', 'uid');
+        return view('reports.daily-performance.index',
+            [
+                'region' => $region,
+                'state' => $state,
+                'town' => $town,
+                'beat' => $beat,
+                'distributor' => $distributor,
+                'role' => $role,
+                'users' => $user,
+                'menu' => $this->menu,
+                'current_menu' => $this->current
+            ]);
+    }
+
+    public function productInvestigation()
+    {
+        $zone = Location1::where('status', 1)->pluck('name', 'id');
+        $region = Location3::where('status', 1)->pluck('name', 'id');
+        $state = Location3::where('status', 1)->pluck('name', 'id');
+        $user = DB::table('person')->where('id','!=',1);
+        $user_data = $user->select(DB::raw('CONCAT(person.first_name," ",person.last_name) as name'), 'person.id as uid')
+            ->pluck('name', 'uid');
+
+        return view('reports.product-investigation.index',
+            [
+                'region' => $region,
+                'zone' => $zone,
+
+                'state' => $state,
+                'user' => $user_data,
+                'menu' => $this->menu,
+                'current_menu' => $this->current
+            ]);
+    }
+
+    public function competitorsNewProduct()
+    {
+        $zone = Location1::where('status', 1)->pluck('name', 'id');
+        $region = Location2::where('status', 1)->pluck('name', 'id');
+        $state = Location3::where('status', 1)->pluck('name', 'id');
+        $user = DB::table('person')->where('id','!=',1);
+        $user_data = $user->select(DB::raw('CONCAT(person.first_name," ",person.last_name) as name'), 'person.id as uid')
+            ->pluck('name', 'uid');
+        $position = DB::table('position_master')->pluck('name', 'id');
+        return view('reports.competitors-new-product.index',
+            [
+                'zone' => $zone,
+                'region' => $region,
+                'state' => $state,
+                'user' => $user_data,
+                'position' => $position,
+                'menu' => $this->menu,
+                'current_menu' => $this->current
+            ]);
+    }
+
+    public function complaintReport()
+    {
+        $zone = Location1::where('status', 1)->pluck('name', 'id');
+        $region = Location3::where('status', 1)->pluck('name', 'id');
+        $state = Location3::where('status', 1)->pluck('name', 'id');
+        $user = DB::table('person')->where('id','!=',1);
+        $user_data = $user->select(DB::raw('CONCAT(person.first_name," ",person.last_name) as name'), 'person.id as uid')
+            ->pluck('name', 'uid');
+        return view('reports.complaint-report.index',
+            [
+                'region' => $region,
+                'zone' => $zone,
+
+                'state' => $state,
+                'user' => $user_data,
+                'menu' => $this->menu,
+                'current_menu' => $this->current
+            ]);
+    }
+
+    public function travellingExpenses()
+    {
+        $zone = Location1::where('status', 1)->pluck('name', 'id');
+        $region = Location3::where('status', 1)->pluck('name', 'id');
+        $state = Location3::where('status', 1)->pluck('name', 'id');
+        $user = DB::table('person')->where('id','!=',1);
+        $user_data = $user->select(DB::raw('CONCAT(person.first_name," ",person.last_name) as name'), 'person.id as uid')
+            ->pluck('name', 'uid');
+        return view('reports.travelling-expenses.index',
+            [
+                'region' => $region,
+                'zone' => $zone,
+
+                'state' => $state,
+                'user' => $user_data,
+                'menu' => $this->menu,
+                'current_menu' => $this->current
+            ]);
+    }
+
+    public function pendingClaim()
+    {
+        $zone = Location1::where('status', 1)->pluck('name', 'id');
+        $region = Location2::where('status', 1)->pluck('name', 'id');
+        $state = Location3::where('status', 1)->pluck('name', 'id');
+        $user = DB::table('person')->where('id','!=',1);
+        $user_data = $user->select(DB::raw('CONCAT(person.first_name," ",person.last_name) as name'), 'person.id as uid')
+            ->pluck('name', 'uid');
+        $position = DB::table('position_master')->pluck('name', 'id');
+        return view('reports.pending-claim.index',
+            [
+                'zone' => $zone,
+                'region' => $region,
+                'state' => $state,
+                'user' => $user_data,
+                'position' => $position,
+                'menu' => $this->menu,
+                'current_menu' => $this->current
+            ]);
+    }
+
+    public function competitivePriceIntelligence()
+    {
+        $zone = Location1::where('status', 1)->pluck('name', 'id');
+        $region = Location2::where('status', 1)->pluck('name', 'id');
+        $state = Location3::where('status', 1)->pluck('name', 'id');
+        $user = DB::table('person');
+        $user_data = $user->select(DB::raw('CONCAT(person.first_name," ",person.last_name) as name'), 'person.id as uid')
+            ->pluck('name', 'uid');
+        $position = DB::table('position_master')->pluck('name', 'id');
+        return view('reports.competitive-price-intelligence.index',
+            [
+                'zone' => $zone,
+                'region' => $region,
+                'state' => $state,
+                'user' => $user_data,
+                'position' => $position,
+                'menu' => $this->menu,
+                'current_menu' => $this->current
+            ]);
+    }
+
+    public function newSdDistProspecting()
+    {
+        $zone = Location1::where('status', 1)->pluck('name', 'id');
+        $region = Location3::where('status', 1)->pluck('name', 'id');
+        $state = Location3::where('status', 1)->pluck('name', 'id');
+        $user = DB::table('person');
+        $user_data = $user->select(DB::raw('CONCAT(person.first_name," ",person.last_name) as name'), 'person.id as uid')
+            ->pluck('name', 'uid');
+        return view('reports.new-sd-dist-prospecting.index',
+            [
+                'region' => $region,
+                'zone' => $zone,
+                'state' => $state,
+                'user' => $user_data,
+                'menu' => $this->menu,
+                'current_menu' => $this->current
+            ]);
+    }
+
+    public function aging()
+    {
+        $region = Location3::where('status', 1)->pluck('name', 'id');
+        return view('reports.aging.index',
+            [
+                'region' => $region,
+                'menu' => $this->menu,
+                'current_menu' => $this->current
+            ]);
+    }
+
+    public function distributorStockStatus()
+    {
+        $dealer = Dealer::where('dealer_status', 1)->pluck('name', 'id');
+        return view('reports.distributor-stock-status.index',
+            [
+                'dealer' => $dealer,
+                'menu' => $this->menu,
+                'current_menu' => $this->current
+            ]);
+    }
+
+    public function stockInHand()
+    {
+        $region = Location2::where('status', 1)->pluck('name', 'id');
+        $state = Location3::where('status', 1)->pluck('name', 'id');
+        $town = Location4::where('status', 1)->pluck('name', 'id');
+        $beat = Location5::where('status', 1)->pluck('name', 'id');
+        return view('reports.stock-in-hand.index',
+            [
+                'region' => $region,
+                'state' => $state,
+                'town' => $town,
+                'beat' => $beat,
+                'menu' => $this->menu,
+                'current_menu' => $this->current
+            ]);
+    }
+
+    public function monthSPrimaryAndSecondarySalesPlan()
+    {
+        $l5 = Location5::where('status', 1)->pluck('name', 'id');
+        return view('reports.month-s-primary-and-secondary-sales-plan.index',
+            [
+                'l5' => $l5,
+                'menu' => $this->menu,
+                'current_menu' => $this->current
+            ]);
+    }
+
+    public function ucdp()
+    {
+        $query = Location3::where('status', 1)->pluck('name', 'id');
+        return view('reports.ucdp.index',
+            [
+                'region' => $query,
+                'menu' => $this->menu,
+                'current_menu' => $this->current
+            ]);
+    }
+
+    public function boardReview()
+    {
+        $query = Location3::where('status', 1)->pluck('name', 'id');
+        return view('reports.board_review.index',
+            [
+                'region' => $query,
+                'menu' => $this->menu,
+                'current_menu' => $this->current
+            ]);
+    }
+
+    public function rsWiseSecondarySales()
+    {
+        $query = Location3::where('status', 1)->pluck('name', 'id');
+        return view('reports.rs-wise-secondary-sales.index',
+            [
+                'region' => $query,
+                'menu' => $this->menu,
+                'current_menu' => $this->current
+            ]);
+    }
+
+    public function rsmAsmSoPerformance()
+    {
+        return view('reports.rsm_asm_so_performance.index',
+            [
+                'menu' => $this->menu,
+                'current_menu' => $this->current
+            ]);
+    }
+
+    public function distributorPerformance()
+    {
+        return view('reports.distributor-performance.index',
+            [
+                'menu' => $this->menu,
+                'current_menu' => $this->current
+            ]);
+    }
+
+    public function salesTrends()
+    {
+        $region = Location2::where('status', 1)->pluck('name', 'id');
+        $state = Location3::where('status', 1)->pluck('name', 'id');
+        $town = Location4::where('status', 1)->pluck('name', 'id');
+        $beat = Location5::where('status', 1)->pluck('name', 'id');
+        $distributor = Dealer::where('dealer_status', 1)->pluck('name', 'id');
+
+        return view('reports.sales-trends.index',
+            [
+                'region' => $region,
+                'state' => $state,
+                'town' => $town,
+                'beat' => $beat,
+                'distributor' => $distributor,
+                'menu' => $this->menu,
+                'current_menu' => $this->current
+            ]);
+    }
+
+    public function outletOpeningStatus()
+    {
+        $region = Location3::where('status', 1)->pluck('name', 'id');
+        return view('reports.outlet-opening-status.index',
+            [
+                'region' => $region,
+                'menu' => $this->menu,
+                'current_menu' => $this->current
+            ]);
+    }
+
+    public function salesReview()
+    {
+        $region = Location3::where('status', 1)->pluck('name', 'id');
+        return view('reports.sales-review.index',
+            [
+                'region' => $region,
+                'menu' => $this->menu,
+                'current_menu' => $this->current
+            ]);
+    }
+
+    public function feedback()
+    {
+        $zone = Location1::where('status', 1)->pluck('name', 'id');
+        $region = Location3::where('status', 1)->pluck('name', 'id');
+        $state = Location3::where('status', 1)->pluck('name', 'id');
+        $user = DB::table('person')->where('id','!=',1);
+        $user_data = $user->select(DB::raw('CONCAT(person.first_name," ",person.last_name) as name'), 'person.id as uid')
+            ->pluck('name', 'uid');
+
+        return view('reports.feedback.index',
+            [
+                'region' => $region,
+                'zone' => $zone,
+
+                'state' => $state,
+                'user' => $user_data,
+                'menu' => $this->menu,
+                'current_menu' => $this->current
+            ]);
+    }
+
+    public function paymentDetails()
+    {
+        $region = Location2::where('status', 1)->pluck('name', 'id');
+        $state = Location3::where('status', 1)->pluck('name', 'id');
+        $town = Location4::where('status', 1)->pluck('name', 'id');
+        $beat = Location5::where('status', 1)->pluck('name', 'id');
+        $distributor = Dealer::where('dealer_status', 1)->pluck('name', 'id');
+//        $role=DB::table('_role')->pluck('rolename','role_id');
+        $user = DB::table('person')->where('id','!=',1)->select(DB::raw('CONCAT(person.first_name," ",person.last_name) as name'), 'person.id as uid')->pluck('name', 'uid');
+
+        return view('reports.payment-details.index',
+            [
+                'region' => $region,
+                'state' => $state,
+                'town' => $town,
+                'beat' => $beat,
+                'distributor' => $distributor,
+                'users' => $user,
+                'menu' => $this->menu,
+                'current_menu' => $this->current
+            ]);
+    }
+
+    public function isrSoTgtMonth()
+    {
+        $state = Location3::where('status', 1)->pluck('name', 'id');
+        $town = Location4::where('status', 1)->pluck('name', 'id');
+
+        $isr_so_role = [];
+        $isr_so_role = DB::table('_role')
+            ->where('filter', 1)
+            ->pluck('role_id');
+        $user = DB::table('person')
+            ->whereIn('role_id', $isr_so_role)
+            ->select(DB::raw('CONCAT(person.first_name," ",person.last_name) as name'), 'person.id as uid')
+            ->where('person.first_name', '!=', '')
+            ->pluck('name', 'uid');
+
+        return view('reports.isr-so-tgt-month.index',
+            [
+                'state' => $state,
+                'town' => $town,
+                'user' => $user,
+                'menu' => $this->menu,
+                'current_menu' => $this->current
+            ]);
+    }
+
+    public function distributerStockReport()
+    {
+        $region = Location2::where('status', 1)->pluck('name', 'id');
+        $state = Location3::where('status', 1)->pluck('name', 'id');
+        $town = Location4::where('status', 1)->pluck('name', 'id');
+        $beat = Location5::where('status', 1)->pluck('name', 'id');
+        $distributor = Dealer::where('dealer_status', 1)->pluck('name', 'id');
+        $role = DB::table('_role')->pluck('rolename', 'role_id');
+        $user = DB::table('person')->select(DB::raw('CONCAT(person.first_name," ",person.last_name) as name'), 'person.id as uid')->pluck('name', 'uid');
+        return view('reports.distributer-stock-report.index',
+            [
+                'region' => $region,
+                'state' => $state,
+                'town' => $town,
+                'beat' => $beat,
+                'distributor' => $distributor,
+                'role' => $role,
+                'users' => $user,
+                'menu' => $this->menu,
+                'current_menu' => $this->current
+            ]);
+
+    }
+
+
+}

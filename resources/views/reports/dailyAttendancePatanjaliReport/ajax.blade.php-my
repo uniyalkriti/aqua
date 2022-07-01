@@ -1,0 +1,108 @@
+@if(!empty($records))
+    <a onclick="fnExcelReport()" href="javascript:void(0)" class="nav-link">
+        <i class="fa fa-file-excel-o "></i> Export Excel</a>
+@endif
+<style>
+    #simple-table table {
+        border-collapse: collapse !important;
+    }
+
+    #simple-table table, #simple-table th, #simple-table td {
+        border: 1px solid black !important;
+    }
+
+    #simple-table th {
+        /*background-color: #438EB9 !important;*/
+        background-color: #7BB0FF !important;
+        color: black;
+    }
+</style>
+<table id="simple-table" class="table table-bordered" style="font-size: 13px;border: 1px black">
+    <thead>
+    <tr class="info" style="color: black;">
+        <th>S.No.</th>
+        <th>Zone</th>
+        <th>Region</th>
+        <th>Emp. Code</th>
+        <th>Name</th>
+        <th>Designation</th>
+        <th>Attendance Status</th>
+        <th>Status</th>
+        <th>Attendance In Time</th>
+        <th>As Per Tour Program Town</th>
+        <th>Attendance Location</th>
+        <th>Attendance Out Time</th>
+        <th>Attendance Out Location</th>
+        {{--<th >WORKING HOURS ( FIRST CALL TO LAST CALL)</th>--}}
+        <th>Working Hours</th>
+        <th>Productive Hours</th>
+    </tr>
+    </thead>
+    <tbody>
+    @if(!empty($records) && count($records)>0)
+        @foreach($records as $key=>$record)
+            <tr class="success">
+                <td>{{$key+1}}</td>
+                <td>{{$record->zone}}</td>
+                <td>{{$record->region}}</td>
+                <td>{{$record->emp_code}}</td>
+                <td>{{$record->uname}}</td>
+                <td>{{$record->role}}</td>
+                <td>{{strtotime(date('H:i:s',strtotime($record->checkin)))>strtotime('10:30:00')?'Half Day':'Present'}}</td>
+                <td>{{$record->work}}</td>
+                <td>{{date('d-M-Y H:i:s',strtotime($record->checkin))}}</td>
+                <td>{{!empty($record->l)?$record->l:'N/A'}}</td>
+                <td>{{$record->track_addrs}}</td>
+                <td>{{ !empty($record->checkout)?date('d-M-Y H:i:s',strtotime($record->checkout)):'00:00:00' }}</td>
+                <td>{{!empty($record->attn_address)?$record->attn_address:'NA'}}</td>
+                <td>@if(!empty($record->checkin) && !empty($record->checkout))
+                        <?php $c1 = new DateTime($record->checkin);$c2 = new DateTime($record->checkout);$interval = $c1->diff($c2);
+                        echo $interval->format('%h') . " Hours " . $interval->format('%i') . " Minutes";
+                        ?>
+                    @else
+                        NA
+                    @endif
+                </td>
+                <td>
+                    @if(!empty($record->first_call1) && !empty($record->last_call))
+                        <?php $c1 = new DateTime($record->first_call1);$c2 = new DateTime($record->last_call);$interval = $c1->diff($c2);
+                        echo $interval->format('%h') . " Hours " . $interval->format('%i') . " Minutes";
+                        ?>
+                    @else
+                        NA
+                    @endif
+                </td>
+            </tr>
+        @endforeach
+    @endif
+    @if(!empty($absentRecords))
+        @foreach($absentRecords as $ak=>$ad)
+            <tr class="danger">
+                <td>{{$key+$ak+2}}</td>
+                <td>{{$ad->zone}}</td>
+                <td>{{$ad->region}}</td>
+                <td>{{$ad->emp_code}}</td>
+                <td>{{$ad->uname}}</td>
+                <td>{{$ad->role}}</td>
+                <td>Absent</td>
+                <td>N/A</td>
+                <td>N/A</td>
+                <td>N/A</td>
+                <td>N/A</td>
+                <td>N/A</td>
+                <td>N/A</td>
+                <td>N/A</td>
+                <td>N/A</td>
+            </tr>
+        @endforeach
+    @endif
+    @if(empty($absentRecords) && empty($records))
+
+        <tr>
+            <td colspan="13">
+                <p class="alert alert-danger">No data found</p>
+            </td>
+        </tr>
+    @endif
+    </tbody>
+</table>

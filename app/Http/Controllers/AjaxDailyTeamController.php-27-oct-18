@@ -1,0 +1,1521 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\_outletType;
+use App\Area;
+use App\Catalog1;
+use App\Claim;
+use App\competitorBrand;
+use App\CompetitorsPriceLog;
+use App\competitorsProduct;
+use App\DailyStock;
+use App\Dealer;
+use App\DealerLocation;
+use App\DealerRetailer;
+use App\Feedback;
+use App\Location1;
+use App\Location2;
+use App\Location6;
+use App\Location7;
+use App\Location3;
+use App\Location4;
+use App\Location5;
+use App\MonthlyTourProgram;
+use App\ReceiveOrder;
+use App\Retailer;
+use App\User;
+use App\UserDetail;
+use App\UserExpenseReport;
+use App\UserSalesOrder;
+use App\Vendor;
+use App\CatalogProduct;
+use App\UsersDetail;
+use Illuminate\Http\Request;
+use DB;
+use App\MyConfiguration;
+use DateTime;
+
+class AjaxDailyTeamController extends Controller
+{
+
+    public function dtrpanel1(Request $request)
+    {
+        $region = $request->region;
+        $user = $request->user;
+        $date = $request->date;
+
+        $month = date('Y-m', strtotime($date));
+        $startDate = $month . "-01";
+        $days = date('d', strtotime($date));
+        $start = new DateTime($startDate);
+        $sundays = floor($days / 7) + ($start->format('N') + $days % 7 >= 7);
+        $totalOff = $sundays + 1;
+        $workingDays = $days - $totalOff;
+        $lastmonthDate = date('Y-m-d', strtotime('-1 month', strtotime($date)));
+        $lastMonth = date('Y-m', strtotime($lastmonthDate));
+        $startlastDate = $lastMonth . "-01";
+        $_SESSION['juniordata'] = array();
+
+        DB::delete('delete from users_junior_hierarchy where senior_id = ?', [$user]);
+        $details = DB::table('person')
+            ->where('id', $user)->where('status', '1')
+            ->select('id', DB::raw("CONCAT(person.first_name,' ',person.last_name) as uname"),
+                'role_id')->first();
+        DB::table('users_junior_hierarchy')->insert(
+            ['senior_id' => $user,
+                'junior_id' => $user,
+                'junior_name' => $details->uname,
+                'role_id' => $details->role_id
+                , 'created_at' => now()
+                , 'updated_at' => now()]
+        );
+        $myobj = new MyConfiguration();
+        $myobj->getJuniorPersonWithSenior($user, $user);
+
+        $junior = $_SESSION['juniordata'];
+        //  print_r($_SESSION['juniordata']); exit;
+        $userName = DB::table('person')->where('id', $user)->select(DB::raw("CONCAT(person.first_name,' ',person.last_name) as uname"))->first();
+
+
+        $manpowerstatus = DB::table('man_power_status')->where(['man_power_status.user_id' => $user])
+            ->get();
+
+        $retailing = DB::table('user_sales_order')
+            ->whereIn('user_id', $junior)
+            ->whereRaw("DATE_FORMAT(user_sales_order.date, '%Y-%m') = '$month'")
+            ->select('role_id', DB::raw('count(order_id) as total'))
+            ->join('person', 'person.id', '=', 'user_sales_order.user_id')
+            ->groupBy('role_id')
+            ->pluck('total', 'role_id');
+        //dd($month);
+        // RD STATUS //
+        $rdStatusQuery = DB::table('users_junior_hierarchy')
+            ->select('junior_id as user_id', 'junior_name as uname',
+                'target', 'achievement', 'month', '_role.rolename as rolename')
+            ->leftJoin('user_sale_target', function ($join) use ($month) {
+                $join->on('user_sale_target.user_id', '=', 'users_junior_hierarchy.junior_id');
+                $join->on(DB::raw("DATE_FORMAT(user_sale_target.month,'%Y-%m')"), '=', DB::raw("'$month'"));
+
+            })
+            ->join('_role', '_role.role_id', '=', 'users_junior_hierarchy.role_id', 'INNER')
+            ->where('users_junior_hierarchy.senior_id', $user)
+            ->orderBy('users_junior_hierarchy.id')
+            ->get();
+        $rdStatus = array();
+        $ird = 0;
+        foreach ($rdStatusQuery as $keyrd => $valuerd) {
+            $rdStatus[$ird]['user_id'] = $valuerd->user_id;
+            $rdStatus[$ird]['uname'] = $valuerd->uname;
+            $rdStatus[$ird]['target'] = $valuerd->target;
+            $rdStatus[$ird]['achievement'] = $valuerd->achievement;
+            $rdStatus[$ird]['month'] = $valuerd->month;
+            $rdStatus[$ird]['rolename'] = $valuerd->rolename;
+            $thisKg = DB::table('sale_view')
+                ->select(DB::raw("SUM(quantity*weight) as weight"))
+                ->where('date', '>=', $startDate)
+                ->where('date', '<=', $date)
+                ->where('user_id', '=', $valuerd->user_id)
+                ->first();
+            $lastKg = DB::table('sale_view')
+                ->select(DB::raw("SUM(quantity*weight) as weight"))
+                ->where('date', '>=', $startlastDate)
+                ->where('date', '<=', $lastmonthDate)
+                ->where('user_id', '=', $valuerd->user_id)
+                ->first();
+            $rdStatus[$ird]['thisKg'] = $thisKg->weight / 1000;
+            $rdStatus[$ird]['lastKg'] = $lastKg->weight / 1000;
+            $ird++;
+        }
+
+// OUTLET STATUS //
+        $outletStatusquery = DB::table('users_junior_hierarchy')
+            ->select('junior_id as user_id', 'junior_name as uname',
+                'target', 'achievement', 'month', '_role.rolename as rolename')
+            ->leftJoin('user_retailer_target', function ($joino) use ($month) {
+                $joino->on('user_retailer_target.user_id', '=', 'users_junior_hierarchy.junior_id');
+                $joino->on(DB::raw("DATE_FORMAT(user_retailer_target.month,'%Y-%m')"), '=', DB::raw("'$month'"));
+            })
+            ->join('_role', '_role.role_id', '=', 'users_junior_hierarchy.role_id', 'INNER')
+            ->where('users_junior_hierarchy.senior_id', $user)
+            ->orderBy('users_junior_hierarchy.id')
+            ->get();
+        $outletStatus = array();
+        $iout = 0;
+        foreach ($outletStatusquery as $keyOutlet => $valueOutlet) {
+            $outletStatus[$iout]['user_id'] = $valueOutlet->user_id;
+            $outletStatus[$iout]['uname'] = $valueOutlet->uname;
+            $outletStatus[$iout]['target'] = $valueOutlet->target;
+            $outletStatus[$iout]['achievement'] = $valueOutlet->achievement;
+            $outletStatus[$iout]['rolename'] = $valueOutlet->rolename;
+            $visit = DB::table('user_sales_order')
+                ->select(DB::raw("count(DISTINCT retailer_id) as retailer"))
+                ->where('date', '>=', $startDate)
+                ->where('date', '<=', $date)
+                ->where('user_id', '=', $valueOutlet->user_id)
+                ->first();
+            $visitActive = DB::table('user_sales_order')
+                ->select(DB::raw("count(DISTINCT retailer_id) as retailer"))
+                ->where('date', '>=', $startDate)
+                ->where('date', '<=', $date)
+                ->where('user_id', '=', $valueOutlet->user_id)
+                ->where('call_status', '=', '1')
+                ->first();
+            $visitActiveLast = DB::table('user_sales_order')
+                ->select(DB::raw("count(DISTINCT retailer_id) as retailer"))
+                ->where('date', '>=', $startlastDate)
+                ->where('date', '<=', $lastmonthDate)
+                ->where('user_id', '=', $valueOutlet->user_id)
+                ->where('call_status', '=', '1')
+                ->first();
+            $perolKg = DB::table('sale_view')
+                ->select(DB::raw("SUM(quantity*weight) as weight"))
+                ->where('date', '>=', $startDate)
+                ->where('date', '<=', $date)
+                ->where('user_id', '=', $valueOutlet->user_id)
+                ->first();
+            $perolKgLast = DB::table('sale_view')
+                ->select(DB::raw("SUM(quantity*weight) as weight"))
+                ->where('date', '>=', $startlastDate)
+                ->where('date', '<=', $lastmonthDate)
+                ->where('user_id', '=', $valueOutlet->user_id)
+                ->first();
+
+            $todayBeat = DB::table('user_sales_order')
+                ->select('location_id')
+                ->where('date', '=', $date)
+                ->where('user_id', '=', $valueOutlet->user_id)
+                ->first();
+
+            if (!empty($todayBeat)) {
+                $todaySaleBeat = DB::table('sale_view')
+                    ->select(DB::raw("SUM(rate*quantity) as todaysale"))
+                    ->where('date', '=', $date)
+                    ->where('location_id', '=', $todayBeat->location_id)
+                    ->where('user_id', '=', $valueOutlet->user_id)
+                    ->first();
+                $lastSaleBeat = DB::table('sale_view')
+                    ->select(DB::raw("SUM(rate*quantity) as todaysale"))
+                    ->where('date', '<', $date)
+                    ->where('location_id', '=', $todayBeat->location_id)
+                    ->where('user_id', '=', $valueOutlet->user_id)
+                    ->first();
+
+                $todayRetailerBeat = DB::table('user_sales_order')
+                    ->select(DB::raw("count(DISTINCT retailer_id) as retailer"))
+                    ->where('date', '=', $date)
+                    ->where('location_id', '=', $todayBeat->location_id)
+                    ->where('user_id', '=', $valueOutlet->user_id)
+                    ->where('call_status', '=', '1')
+                    ->first();
+                $lastRetailerBeat = DB::table('user_sales_order')
+                    ->select(DB::raw("count(DISTINCT retailer_id) as retailer"))
+                    ->where('date', '<', $date)
+                    ->where('location_id', '=', $todayBeat->location_id)
+                    ->where('user_id', '=', $valueOutlet->user_id)
+                    ->where('call_status', '=', '1')
+                    ->first();
+
+                $todaySaleBeatData = $todaySaleBeat->todaysale;
+                $lastSaleBeatData = $lastSaleBeat->todaysale;
+                $todayRetailerBeatData = $todayRetailerBeat->retailer;
+                $lastRetailerBeatData = $lastRetailerBeat->retailer;
+            } else {
+                $todaySaleBeatData = 0;
+                $lastSaleBeatData = 0;
+                $todayRetailerBeatData = 0;
+                $lastRetailerBeatData = 0;
+            }
+
+
+            $outletStatus[$iout]['visit'] = $visit->retailer;
+            $outletStatus[$iout]['active'] = $visitActive->retailer;
+            $outletStatus[$iout]['activeLast'] = $visitActiveLast->retailer;
+            $outletStatus[$iout]['perolKg'] = $perolKg->weight;
+            $outletStatus[$iout]['perolKgLast'] = $perolKgLast->weight;
+            $outletStatus[$iout]['todaySaleBeat'] = $todaySaleBeatData;
+            $outletStatus[$iout]['lastSaleBeat'] = $lastSaleBeatData;
+            $outletStatus[$iout]['todayRetailerBeat'] = $todayRetailerBeatData;
+            $outletStatus[$iout]['lastRetailerBeat'] = $lastRetailerBeatData;
+
+            $iout++;
+
+        }
+//  dd($userName);
+        return view('reports.daily-item-report.panel1',
+            ['manpowerstatus' => $manpowerstatus
+                , 'retailing' => $retailing
+                , 'rdStatus' => $rdStatus
+                , 'workingDays' => $workingDays
+                , 'days' => $days
+                , 'userName' => $userName
+                , 'outletStatus' => $outletStatus
+
+            ]);
+    }
+
+// FOR RD SALE
+    public function dtrpanel6(Request $request)
+    {
+        $region = $request->region;
+        $user = $request->user;
+        $date = $request->date;
+
+        $month = date('Y-m', strtotime($date));
+        $startDate = $month . "-01";
+        $days = date('d', strtotime($date));
+        $start = new DateTime($startDate);
+        $sundays = floor($days / 7) + ($start->format('N') + $days % 7 >= 7);
+        $totalOff = $sundays + 1;
+        $workingDays = $days - $totalOff;
+        $lastmonthDate = date('Y-m-d', strtotime('-1 month', strtotime($date)));
+        $lastMonth = date('Y-m', strtotime($lastmonthDate));
+        $startlastDate = $lastMonth . "-01";
+        $_SESSION['juniordata'] = array();
+
+        DB::delete('delete from users_junior_hierarchy where senior_id = ?', [$user]);
+        $details = DB::table('person')
+            ->where('id', $user)->where('status', '1')
+            ->select('id', DB::raw("CONCAT(person.first_name,' ',person.last_name) as uname"),
+                'role_id')->first();
+        DB::table('users_junior_hierarchy')->insert(
+            ['senior_id' => $user,
+                'junior_id' => $user,
+                'junior_name' => $details->uname,
+                'role_id' => $details->role_id
+                , 'created_at' => now()
+                , 'updated_at' => now()]
+        );
+        $myobj = new MyConfiguration();
+        $myobj->getJuniorPersonWithSenior($user, $user);
+        $junior = $_SESSION['juniordata'];
+//  print_r($_SESSION['juniordata']); exit;
+        $userName = DB::table('person')->where('id', $user)->select(DB::raw("CONCAT(person.first_name,' ',person.last_name) as uname"))->first();
+        $manpowerstatus = DB::table('man_power_status')->where(['man_power_status.user_id' => $user])
+            ->get();
+
+        $retailing = DB::table('purchase_order')
+            ->whereIn('created_person_id', $junior)
+            ->whereRaw("DATE_FORMAT(purchase_order.ch_date, '%Y-%m') = '$month'")
+            ->select('role_id', DB::raw('count(order_id) as total'))
+            ->join('person', 'person.id', '=', 'purchase_order.created_person_id')
+            ->groupBy('role_id')
+            ->pluck('total', 'role_id');
+        //dd($month);
+        // RD STATUS //
+        $rdStatusQuery = DB::table('users_junior_hierarchy')
+            ->select('junior_id as user_id', 'junior_name as uname',
+                'target', 'achievement', 'month', '_role.rolename as rolename', 'dealer.name as dealer_name', 'user_purchase_target.dealer_id as dealerId')
+            ->leftJoin('user_purchase_target', function ($join) use ($month) {
+                $join->on('user_purchase_target.user_id', '=', 'users_junior_hierarchy.junior_id');
+                $join->on(DB::raw("DATE_FORMAT(user_purchase_target.month,'%Y-%m')"), '=', DB::raw("'$month'"));
+
+            })
+            ->join('_role', '_role.role_id', '=', 'users_junior_hierarchy.role_id', 'INNER')
+            ->join('dealer', 'dealer.id', '=', 'user_purchase_target.dealer_id', 'INNER')
+            ->where('users_junior_hierarchy.senior_id', $user)
+            ->orderBy('users_junior_hierarchy.id')
+            ->get();
+        $rdStatus = array();
+        $ird = 0;
+        foreach ($rdStatusQuery as $keyrd => $valuerd) {
+            $rdStatus[$ird]['user_id'] = $valuerd->user_id;
+            $rdStatus[$ird]['uname'] = $valuerd->uname;
+            $rdStatus[$ird]['target'] = $valuerd->target;
+            $rdStatus[$ird]['achievement'] = $valuerd->achievement;
+            $rdStatus[$ird]['month'] = $valuerd->month;
+            $rdStatus[$ird]['rolename'] = $valuerd->rolename;
+            $rdStatus[$ird]['dealerId'] = $valuerd->dealerId;
+            $rdStatus[$ird]['dealer_name'] = $valuerd->dealer_name;
+            $thisKg = DB::table('purchase_view')
+                ->select(DB::raw("SUM(quantity*weight) as weight"))
+                ->where('ch_date', '>=', $startDate)
+                ->where('ch_date', '<=', $date)
+                ->where('user_id', '=', $valuerd->user_id)
+                ->where('dealer_id', '=', $valuerd->dealerId)
+                ->first();
+            $lastKg = DB::table('purchase_view')
+                ->select(DB::raw("SUM(quantity*weight) as weight"))
+                ->where('ch_date', '>=', $startlastDate)
+                ->where('ch_date', '<=', $lastmonthDate)
+                ->where('user_id', '=', $valuerd->user_id)
+                ->first();
+            $rdStatus[$ird]['thisKg'] = $thisKg->weight / 1000;
+            $rdStatus[$ird]['lastKg'] = $lastKg->weight / 1000;
+            $ird++;
+        }
+
+// OUTLET STATUS //
+        $outletStatusquery = DB::table('users_junior_hierarchy')
+            ->select('junior_id as user_id', 'junior_name as uname',
+                'target', 'achievement', 'month', '_role.rolename as rolename')
+            ->leftJoin('user_retailer_target', function ($joino) use ($month) {
+                $joino->on('user_retailer_target.user_id', '=', 'users_junior_hierarchy.junior_id');
+                $joino->on(DB::raw("DATE_FORMAT(user_retailer_target.month,'%Y-%m')"), '=', DB::raw("'$month'"));
+            })
+            ->join('_role', '_role.role_id', '=', 'users_junior_hierarchy.role_id', 'INNER')
+            ->where('users_junior_hierarchy.senior_id', $user)
+            ->orderBy('users_junior_hierarchy.id')
+            ->get();
+        $outletStatus = array();
+        $iout = 0;
+        foreach ($outletStatusquery as $keyOutlet => $valueOutlet) {
+            $outletStatus[$iout]['user_id'] = $valueOutlet->user_id;
+            $outletStatus[$iout]['uname'] = $valueOutlet->uname;
+            $outletStatus[$iout]['target'] = $valueOutlet->target;
+            $outletStatus[$iout]['achievement'] = $valueOutlet->achievement;
+            $outletStatus[$iout]['rolename'] = $valueOutlet->rolename;
+            $visit = DB::table('user_sales_order')
+                ->select(DB::raw("count(DISTINCT retailer_id) as retailer"))
+                ->where('date', '>=', $startDate)
+                ->where('date', '<=', $date)
+                ->where('user_id', '=', $valueOutlet->user_id)
+                ->first();
+            $visitActive = DB::table('user_sales_order')
+                ->select(DB::raw("count(DISTINCT retailer_id) as retailer"))
+                ->where('date', '>=', $startDate)
+                ->where('date', '<=', $date)
+                ->where('user_id', '=', $valueOutlet->user_id)
+                ->where('call_status', '=', '1')
+                ->first();
+            $visitActiveLast = DB::table('user_sales_order')
+                ->select(DB::raw("count(DISTINCT retailer_id) as retailer"))
+                ->where('date', '>=', $startlastDate)
+                ->where('date', '<=', $lastmonthDate)
+                ->where('user_id', '=', $valueOutlet->user_id)
+                ->where('call_status', '=', '1')
+                ->first();
+            $perolKg = DB::table('sale_view')
+                ->select(DB::raw("SUM(quantity*weight) as weight"))
+                ->where('date', '>=', $startDate)
+                ->where('date', '<=', $date)
+                ->where('user_id', '=', $valueOutlet->user_id)
+                ->first();
+            $perolKgLast = DB::table('sale_view')
+                ->select(DB::raw("SUM(quantity*weight) as weight"))
+                ->where('date', '>=', $startlastDate)
+                ->where('date', '<=', $lastmonthDate)
+                ->where('user_id', '=', $valueOutlet->user_id)
+                ->first();
+
+            $todayBeat = DB::table('user_sales_order')
+                ->select('location_id')
+                ->where('date', '=', $date)
+                ->where('user_id', '=', $valueOutlet->user_id)
+                ->first();
+
+            if (!empty($todayBeat)) {
+                $todaySaleBeat = DB::table('sale_view')
+                    ->select(DB::raw("SUM(rate*quantity) as todaysale"))
+                    ->where('date', '=', $date)
+                    ->where('location_id', '=', $todayBeat->location_id)
+                    ->where('user_id', '=', $valueOutlet->user_id)
+                    ->first();
+                $lastSaleBeat = DB::table('sale_view')
+                    ->select(DB::raw("SUM(rate*quantity) as todaysale"))
+                    ->where('date', '<', $date)
+                    ->where('location_id', '=', $todayBeat->location_id)
+                    ->where('user_id', '=', $valueOutlet->user_id)
+                    ->first();
+
+                $todayRetailerBeat = DB::table('user_sales_order')
+                    ->select(DB::raw("count(DISTINCT retailer_id) as retailer"))
+                    ->where('date', '=', $date)
+                    ->where('location_id', '=', $todayBeat->location_id)
+                    ->where('user_id', '=', $valueOutlet->user_id)
+                    ->where('call_status', '=', '1')
+                    ->first();
+                $lastRetailerBeat = DB::table('user_sales_order')
+                    ->select(DB::raw("count(DISTINCT retailer_id) as retailer"))
+                    ->where('date', '<', $date)
+                    ->where('location_id', '=', $todayBeat->location_id)
+                    ->where('user_id', '=', $valueOutlet->user_id)
+                    ->where('call_status', '=', '1')
+                    ->first();
+
+                $todaySaleBeatData = $todaySaleBeat->todaysale;
+                $lastSaleBeatData = $lastSaleBeat->todaysale;
+                $todayRetailerBeatData = $todayRetailerBeat->retailer;
+                $lastRetailerBeatData = $lastRetailerBeat->retailer;
+            } else {
+                $todaySaleBeatData = 0;
+                $lastSaleBeatData = 0;
+                $todayRetailerBeatData = 0;
+                $lastRetailerBeatData = 0;
+            }
+
+
+            $outletStatus[$iout]['visit'] = $visit->retailer;
+            $outletStatus[$iout]['active'] = $visitActive->retailer;
+            $outletStatus[$iout]['activeLast'] = $visitActiveLast->retailer;
+            $outletStatus[$iout]['perolKg'] = $perolKg->weight;
+            $outletStatus[$iout]['perolKgLast'] = $perolKgLast->weight;
+            $outletStatus[$iout]['todaySaleBeat'] = $todaySaleBeatData;
+            $outletStatus[$iout]['lastSaleBeat'] = $lastSaleBeatData;
+            $outletStatus[$iout]['todayRetailerBeat'] = $todayRetailerBeatData;
+            $outletStatus[$iout]['lastRetailerBeat'] = $lastRetailerBeatData;
+
+            $iout++;
+
+        }
+        return view('reports.daily-item-report.panel6',
+            ['manpowerstatus' => $manpowerstatus
+                , 'retailing' => $retailing
+                , 'rdStatus' => $rdStatus
+                , 'workingDays' => $workingDays
+                , 'days' => $days
+                , 'userName' => $userName
+                , 'outletStatus' => $outletStatus
+
+            ]);
+    }
+
+    public function dtrpanel2(Request $request)
+    {
+        $region = $request->region;
+        $user = $request->user;
+        $date = $request->date;
+
+        $month = date('Y-m', strtotime($date));
+        $startDate = $month . "-01";
+        $days = date('d', strtotime($date));
+        $start = new DateTime($startDate);
+        $sundays = floor($days / 7) + ($start->format('N') + $days % 7 >= 7);
+        $totalOff = $sundays + 1;
+        $workingDays = $days - $totalOff;
+        // 1 MONTH AGO
+        $Date30 = date('Y-m-d', strtotime('-30 Day', strtotime($date)));
+        // 45 DAYS AGO
+        $Date45 = date('Y-m-d', strtotime('-45 Day', strtotime($date)));
+        // 60 DAYS AGO
+        $Date60 = date('Y-m-d', strtotime('-60 Day', strtotime($date)));
+        // 90 DAYS AGO
+        $Date90 = date('Y-m-d', strtotime('-90 Day', strtotime($date)));
+// exit;
+        $_SESSION['juniordata'] = array();
+
+        DB::delete('delete from users_junior_hierarchy where senior_id = ?', [$user]);
+        $details = DB::table('person')
+            ->where('id', $user)->where('status', '1')
+            ->select('id', DB::raw("CONCAT(person.first_name,' ',person.last_name) as uname"),
+                'role_id')->first();
+        DB::table('users_junior_hierarchy')->insert(
+            ['senior_id' => $user,
+                'junior_id' => $user,
+                'junior_name' => $details->uname,
+                'role_id' => $details->role_id
+                , 'created_at' => now()
+                , 'updated_at' => now()]
+        );
+        $myobj = new MyConfiguration();
+        $myobj->getJuniorPersonWithSenior($user, $user);
+        $junior = $_SESSION['juniordata'];
+        //  print_r($_SESSION['juniordata']); exit;
+        $userName = DB::table('person')->where('id', $user)->select(DB::raw("CONCAT(person.first_name,' ',person.last_name) as uname"))->first();
+        // DATA
+
+        $paymentUser = DB::table('users_junior_hierarchy')
+            ->select('junior_id as user_id', 'junior_name as uname', '_role.rolename as rolename')
+            ->join('_role', '_role.role_id', '=', 'users_junior_hierarchy.role_id', 'INNER')
+            ->where('users_junior_hierarchy.senior_id', $user)
+            ->orderBy('users_junior_hierarchy.id')
+            ->get();
+        $payment30 = array();
+        $payment45 = array();
+        $payment60 = array();
+        $payment90 = array();
+        $ip = 0;
+        $ip30 = 0;
+        $ip45 = 0;
+        $ip60 = 0;
+        foreach ($paymentUser as $keyPay => $valuePay) {
+            $ip30++;
+            // FOR 30 DAYS //
+            $payment30[$ip30]['user_id'] = $valuePay->user_id;
+            $payment30[$ip30]['uname'] = $valuePay->uname;
+            $payment30[$ip30]['rolename'] = $valuePay->rolename;
+            $payrs30User = DB::table('challan_order')->select(DB::raw("SUM(remaining) as remain"))
+                ->join('dealer', 'dealer.id', '=', 'challan_order.ch_dealer_id')
+                ->where(DB::raw("DATE_FORMAT(ch_date,'%Y-%m-%d')"), '<', DB::raw("'$Date30'"))
+                ->where(DB::raw("DATE_FORMAT(ch_date,'%Y-%m-%d')"), '>=', DB::raw("'$Date45'"))
+                ->where('ch_user_id', $valuePay->user_id)->first();
+            $payment30[$ip30]['remain'] = $payrs30User->remain;
+            $payment30[$ip30]['color'] = "yellow";
+
+            // ch_user_id
+
+            $payrs30 = DB::table('challan_order')->select(DB::raw("SUM(remaining) as remain"), 'ch_dealer_id', 'dealer.name as uname')
+                ->join('dealer', 'dealer.id', '=', 'challan_order.ch_dealer_id')
+                ->where(DB::raw("DATE_FORMAT(ch_date,'%Y-%m-%d')"), '<', DB::raw("'$Date30'"))
+                ->where(DB::raw("DATE_FORMAT(ch_date,'%Y-%m-%d')"), '>=', DB::raw("'$Date45'"))
+                ->where('ch_user_id', $valuePay->user_id)->groupBy('ch_dealer_id')->get();
+            if (!empty($payrs30)) {
+                foreach ($payrs30 as $key30 => $value30) {
+                    $ip30++;
+                    $payment30[$ip30]['user_id'] = $value30->ch_dealer_id;
+                    $payment30[$ip30]['uname'] = $value30->uname;
+                    $payment30[$ip30]['rolename'] = "Distributor";
+                    $payment30[$ip30]['remain'] = $value30->remain;
+                    $payment30[$ip30]['color'] = "#fff";
+                }
+            } else {
+                $ip30++;
+            }
+
+
+// END OF 30 DAYS //
+// START OF 45 DAYS //
+            $ip45++;
+            $payment45[$ip45]['user_id'] = $valuePay->user_id;
+            $payment45[$ip45]['uname'] = $valuePay->uname;
+            $payment45[$ip45]['rolename'] = $valuePay->rolename;
+
+            $payrs451 = DB::table('challan_order')->select(DB::raw("SUM(remaining) as remain"))
+                ->where(DB::raw("DATE_FORMAT(ch_date,'%Y-%m-%d')"), '<', DB::raw("'$Date45'"))
+                ->where(DB::raw("DATE_FORMAT(ch_date,'%Y-%m-%d')"), '>=', DB::raw("'$Date60'"))
+                ->where('ch_user_id', $valuePay->user_id)->first();
+            $payment45[$ip45]['remain'] = $payrs451->remain;
+
+            $payment45[$ip45]['color'] = "yellow";
+
+            // ch_user_id
+
+            $payrs45 = DB::table('challan_order')->select(DB::raw("SUM(remaining) as remain"), 'ch_dealer_id', 'dealer.name as uname')
+                ->join('dealer', 'dealer.id', '=', 'challan_order.ch_dealer_id')
+                ->where(DB::raw("DATE_FORMAT(ch_date,'%Y-%m-%d')"), '<', DB::raw("'$Date45'"))
+                ->where(DB::raw("DATE_FORMAT(ch_date,'%Y-%m-%d')"), '>=', DB::raw("'$Date60'"))
+                ->where('ch_user_id', $valuePay->user_id)->groupBy('ch_dealer_id')->get();
+            if (!empty($payrs45)) {
+                foreach ($payrs45 as $key45 => $value45) {
+                    $ip45++;
+                    $payment45[$ip45]['user_id'] = $value45->ch_dealer_id;
+                    $payment45[$ip45]['uname'] = $value45->uname;
+                    $payment45[$ip45]['rolename'] = "Distributor";
+                    $payment45[$ip45]['remain'] = $value45->remain;
+                    $payment45[$ip45]['color'] = "#fff";
+                }
+            } else {
+                $ip45++;
+            }
+
+
+// END OF 45 DAYS //
+// START OF 60 DAYS //
+            $ip60++;
+            $payment60[$ip60]['user_id'] = $valuePay->user_id;
+            $payment60[$ip60]['uname'] = $valuePay->uname;
+            $payment60[$ip60]['rolename'] = $valuePay->rolename;
+
+            $payrs601 = DB::table('challan_order')->select(DB::raw("SUM(remaining) as remain"))
+                ->where(DB::raw("DATE_FORMAT(ch_date,'%Y-%m-%d')"), '<', DB::raw("'$Date60'"))
+                ->where(DB::raw("DATE_FORMAT(ch_date,'%Y-%m-%d')"), '>=', DB::raw("'$Date90'"))
+                ->where('ch_user_id', $valuePay->user_id)->first();
+            $payment60[$ip60]['remain'] = $payrs601->remain;
+
+            $payment60[$ip60]['color'] = "yellow";
+
+            // ch_user_id
+
+            $payrs60 = DB::table('challan_order')->select(DB::raw("SUM(remaining) as remain"), 'ch_dealer_id', 'dealer.name as uname')
+                ->join('dealer', 'dealer.id', '=', 'challan_order.ch_dealer_id')
+                ->where(DB::raw("DATE_FORMAT(ch_date,'%Y-%m-%d')"), '<', DB::raw("'$Date60'"))
+                ->where(DB::raw("DATE_FORMAT(ch_date,'%Y-%m-%d')"), '>=', DB::raw("'$Date90'"))
+                ->where('ch_user_id', $valuePay->user_id)->groupBy('ch_dealer_id')->get();
+            if (!empty($payrs60)) {
+                foreach ($payrs60 as $key60 => $value60) {
+                    $ip60++;
+                    $payment60[$ip60]['user_id'] = $value60->ch_dealer_id;
+                    $payment60[$ip60]['uname'] = $value60->uname;
+                    $payment60[$ip60]['rolename'] = "Distributor";
+                    $payment60[$ip60]['remain'] = $value60->remain;
+                    $payment60[$ip60]['color'] = "#fff";
+                }
+            } else {
+                $ip60++;
+            }
+// END OF 60 DAYS //
+
+// START OF 90 DAYs //
+            $ip++;
+            $payment90[$ip]['user_id'] = $valuePay->user_id;
+            $payment90[$ip]['uname'] = $valuePay->uname;
+            $payment90[$ip]['rolename'] = $valuePay->rolename;
+
+            $payrs901 = DB::table('challan_order')->select(DB::raw("SUM(remaining) as remain"))
+                ->where(DB::raw("DATE_FORMAT(ch_date,'%Y-%m-%d')"), '<', DB::raw("'$Date90'"))
+                //  ->where(DB::raw("DATE_FORMAT(ch_date,'%Y-%m-%d')"), '>=',DB::raw("'$Date45'"))
+                ->where('ch_user_id', $valuePay->user_id)->first();
+            $payment90[$ip]['remain'] = $payrs901->remain;
+
+            $payment90[$ip]['color'] = "yellow";
+
+            // ch_user_id
+
+            $payrs90 = DB::table('challan_order')->select(DB::raw("SUM(remaining) as remain"), 'ch_dealer_id', 'dealer.name as uname')
+                ->join('dealer', 'dealer.id', '=', 'challan_order.ch_dealer_id')
+                ->where(DB::raw("DATE_FORMAT(ch_date,'%Y-%m-%d')"), '<', DB::raw("'$Date60'"))
+                ->where(DB::raw("DATE_FORMAT(ch_date,'%Y-%m-%d')"), '>=', DB::raw("'$Date90'"))
+                ->where('ch_user_id', $valuePay->user_id)->groupBy('ch_dealer_id')->get();
+            if (!empty($payrs90)) {
+                foreach ($payrs90 as $key90 => $value90) {
+                    $ip++;
+                    $payment90[$ip]['user_id'] = $value90->ch_dealer_id;
+                    $payment90[$ip]['uname'] = $value90->uname;
+                    $payment90[$ip]['rolename'] = "Distributor";
+                    $payment90[$ip]['remain'] = $value90->remain;
+                    $payment90[$ip]['color'] = "#fff";
+                }
+            } else {
+                $ip++;
+            }
+
+
+            // $ip++;
+        }
+
+        return view('reports.daily-item-report.panel2',
+            [
+                'workingDays' => $workingDays
+                , 'days' => $days
+                , 'userName' => $userName
+                , 'payment30' => $payment30
+                , 'payment45' => $payment45
+                , 'payment60' => $payment60
+                , 'payment90' => $payment90
+
+            ]);
+
+    }
+
+    public function dtrpanel3(Request $request)
+    {
+        $region = $request->region;
+        $user = $request->user;
+        $date = $request->date;
+
+        $month = date('Y-m', strtotime($date));
+        $startDate = $month . "-01";
+        $days = date('d', strtotime($date));
+        $start = new DateTime($startDate);
+        $sundays = floor($days / 7) + ($start->format('N') + $days % 7 >= 7);
+        $totalOff = $sundays + 1;
+        $workingDays = $days - $totalOff;
+        $lastmonthDate = date('Y-m-d', strtotime('-1 month', strtotime($date)));
+        $lastMonth = date('Y-m', strtotime($lastmonthDate));
+        $startlastDate = $lastMonth . "-01";
+        $_SESSION['juniordata'] = array();
+
+        DB::delete('delete from users_junior_hierarchy where senior_id = ?', [$user]);
+        $details = DB::table('person')
+            ->where('id', $user)->where('status', '1')
+            ->select('id', DB::raw("CONCAT(person.first_name,' ',person.last_name) as uname"),
+                'role_id')->first();
+        DB::table('users_junior_hierarchy')->insert(
+            ['senior_id' => $user,
+                'junior_id' => $user,
+                'junior_name' => $details->uname,
+                'role_id' => $details->role_id
+                , 'created_at' => now()
+                , 'updated_at' => now()]
+        );
+        $myobj = new MyConfiguration();
+        $myobj->getJuniorPersonWithSenior($user, $user);
+        $junior = $_SESSION['juniordata'];
+        //  print_r($_SESSION['juniordata']); exit;
+        $userName = DB::table('person')->where('id', $user)->select(DB::raw("CONCAT(person.first_name,' ',person.last_name) as uname"))->first();
+        $pwRdUser = DB::table('users_junior_hierarchy')
+            ->select('junior_id as user_id', 'junior_name as uname', '_role.rolename as rolename')
+            ->join('_role', '_role.role_id', '=', 'users_junior_hierarchy.role_id', 'INNER')
+            ->where('users_junior_hierarchy.senior_id', $user)
+            ->orderBy('users_junior_hierarchy.id')
+            ->get();
+        $ip = 0;
+        $catSale = array();
+        foreach ($pwRdUser as $keypwRd => $valuepwRd) {
+            $catSale[$ip]['user_id'] = $valuepwRd->user_id;
+            $catSale[$ip]['uname'] = $valuepwRd->uname;
+            $catSale[$ip]['rolename'] = $valuepwRd->rolename;
+            // ch_user_id
+            $cate1 = DB::table('sale_view')->select(DB::raw("SUM(rate*quantity) as sale"))
+                ->join('catalog_view', 'catalog_view.product_id', '=', 'sale_view.product_id', 'INNER')
+                ->where(DB::raw("DATE_FORMAT(date,'%Y-%m-%d')"), '>=', DB::raw("'$startDate'"))
+                ->where(DB::raw("DATE_FORMAT(date,'%Y-%m-%d')"), '<=', DB::raw("'$date'"))
+                ->where('user_id', $valuepwRd->user_id)
+                ->where('catalog_view.c1_id', '120150507011140')
+                ->first();
+
+            $catSale[$ip]['sale1'] = $cate1->sale;
+
+            // ch_user_id
+            $cate2 = DB::table('sale_view')->select(DB::raw("SUM(rate*quantity) as sale"))
+                ->join('catalog_view', 'catalog_view.product_id', '=', 'sale_view.product_id', 'INNER')
+                ->where(DB::raw("DATE_FORMAT(date,'%Y-%m-%d')"), '>=', DB::raw("'$startDate'"))
+                ->where(DB::raw("DATE_FORMAT(date,'%Y-%m-%d')"), '<=', DB::raw("'$date'"))
+                ->where('user_id', $valuepwRd->user_id)
+                ->where('catalog_view.c1_id', '120150507011152')
+                ->first();
+
+            $catSale[$ip]['sale2'] = $cate2->sale;
+
+            // ch_user_id
+            $cate3 = DB::table('sale_view')->select(DB::raw("SUM(rate*quantity) as sale"))
+                ->join('catalog_view', 'catalog_view.product_id', '=', 'sale_view.product_id', 'INNER')
+                ->where(DB::raw("DATE_FORMAT(date,'%Y-%m-%d')"), '>=', DB::raw("'$startDate'"))
+                ->where(DB::raw("DATE_FORMAT(date,'%Y-%m-%d')"), '<=', DB::raw("'$date'"))
+                ->where('user_id', $valuepwRd->user_id)
+                ->where('catalog_view.c1_id', '120150507011211')
+                ->first();
+
+            $catSale[$ip]['sale3'] = $cate3->sale;
+            // ch_user_id
+            $cate4 = DB::table('sale_view')->select(DB::raw("SUM(rate*quantity) as sale"))
+                ->join('catalog_view', 'catalog_view.product_id', '=', 'sale_view.product_id', 'INNER')
+                ->where(DB::raw("DATE_FORMAT(date,'%Y-%m-%d')"), '>=', DB::raw("'$startDate'"))
+                ->where(DB::raw("DATE_FORMAT(date,'%Y-%m-%d')"), '<=', DB::raw("'$date'"))
+                ->where('user_id', $valuepwRd->user_id)
+                ->where('catalog_view.c1_id', '120150507011222')
+                ->first();
+
+            $catSale[$ip]['sale4'] = $cate4->sale;
+
+            $cate5 = DB::table('sale_view')->select(DB::raw("SUM(rate*quantity) as sale"))
+                ->join('catalog_view', 'catalog_view.product_id', '=', 'sale_view.product_id', 'INNER')
+                ->where(DB::raw("DATE_FORMAT(date,'%Y-%m-%d')"), '>=', DB::raw("'$startDate'"))
+                ->where(DB::raw("DATE_FORMAT(date,'%Y-%m-%d')"), '<=', DB::raw("'$date'"))
+                ->where('user_id', $valuepwRd->user_id)
+                ->where('catalog_view.c1_id', '120150507011301')
+                ->first();
+
+            $catSale[$ip]['sale5'] = $cate5->sale;
+
+            $cate6 = DB::table('sale_view')->select(DB::raw("SUM(rate*quantity) as sale"))
+                ->join('catalog_view', 'catalog_view.product_id', '=', 'sale_view.product_id', 'INNER')
+                ->where(DB::raw("DATE_FORMAT(date,'%Y-%m-%d')"), '>=', DB::raw("'$startDate'"))
+                ->where(DB::raw("DATE_FORMAT(date,'%Y-%m-%d')"), '<=', DB::raw("'$date'"))
+                ->where('user_id', $valuepwRd->user_id)
+                ->where('catalog_view.c1_id', '120150622100550')
+                ->first();
+
+            $catSale[$ip]['sale6'] = $cate6->sale;
+
+            $cate7 = DB::table('sale_view')->select(DB::raw("SUM(rate*quantity) as sale"))
+                ->join('catalog_view', 'catalog_view.product_id', '=', 'sale_view.product_id', 'INNER')
+                ->where(DB::raw("DATE_FORMAT(date,'%Y-%m-%d')"), '>=', DB::raw("'$startDate'"))
+                ->where(DB::raw("DATE_FORMAT(date,'%Y-%m-%d')"), '<=', DB::raw("'$date'"))
+                ->where('user_id', $valuepwRd->user_id)
+                ->where('catalog_view.c1_id', '120170323095853')
+                ->first();
+
+            $catSale[$ip]['sale7'] = $cate7->sale;
+
+            $cate8 = DB::table('sale_view')->select(DB::raw("SUM(rate*quantity) as sale"))
+                ->join('catalog_view', 'catalog_view.product_id', '=', 'sale_view.product_id', 'INNER')
+                ->where(DB::raw("DATE_FORMAT(date,'%Y-%m-%d')"), '>=', DB::raw("'$startDate'"))
+                ->where(DB::raw("DATE_FORMAT(date,'%Y-%m-%d')"), '<=', DB::raw("'$date'"))
+                ->where('user_id', $valuepwRd->user_id)
+                ->where('catalog_view.c1_id', '120171219112227')
+                ->first();
+
+            $catSale[$ip]['sale8'] = $cate8->sale;
+
+            $cate9 = DB::table('sale_view')->select(DB::raw("SUM(rate*quantity) as sale"))
+                ->join('catalog_view', 'catalog_view.product_id', '=', 'sale_view.product_id', 'INNER')
+                ->where(DB::raw("DATE_FORMAT(date,'%Y-%m-%d')"), '>=', DB::raw("'$startDate'"))
+                ->where(DB::raw("DATE_FORMAT(date,'%Y-%m-%d')"), '<=', DB::raw("'$date'"))
+                ->where('user_id', $valuepwRd->user_id)
+                ->where('catalog_view.c1_id', '120171219112228')
+                ->first();
+
+            $catSale[$ip]['sale9'] = $cate9->sale;
+
+            $ip++;
+        }
+        return view('reports.daily-item-report.panel3',
+            [
+                'workingDays' => $workingDays
+                , 'days' => $days
+                , 'userName' => $userName
+                , 'catSale' => $catSale
+            ]);
+    }
+
+    public function dtrpanel4(Request $request)
+    {
+        $region = $request->region;
+        $user = $request->user;
+        $date = $request->date;
+
+        $month = date('Y-m', strtotime($date));
+        $startDate = $month . "-01";
+        $days = date('d', strtotime($date));
+        $start = new DateTime($startDate);
+        $sundays = floor($days / 7) + ($start->format('N') + $days % 7 >= 7);
+        $totalOff = $sundays + 1;
+        $workingDays = $days - $totalOff;
+        $lastmonthDate = date('Y-m-d', strtotime('-1 month', strtotime($date)));
+        $lastMonth = date('Y-m', strtotime($lastmonthDate));
+        $startlastDate = $lastMonth . "-01";
+        $_SESSION['juniordata'] = array();
+
+        DB::delete('delete from users_junior_hierarchy where senior_id = ?', [$user]);
+        $details = DB::table('person')
+            ->where('id', $user)->where('status', '1')
+            ->select('id', DB::raw("CONCAT(person.first_name,' ',person.last_name) as uname"),
+                'role_id')->first();
+        DB::table('users_junior_hierarchy')->insert(
+            ['senior_id' => $user,
+                'junior_id' => $user,
+                'junior_name' => $details->uname,
+                'role_id' => $details->role_id
+                , 'created_at' => now()
+                , 'updated_at' => now()]
+        );
+        $myobj = new MyConfiguration();
+        $myobj->getJuniorPersonWithSenior($user, $user);
+        $junior = $_SESSION['juniordata'];
+        //  print_r($_SESSION['juniordata']); exit;
+        $userName = DB::table('person')->where('id', $user)->select(DB::raw("CONCAT(person.first_name,' ',person.last_name) as uname"))->first();
+        $pwRdUser = DB::table('users_junior_hierarchy')
+            ->select('junior_id as user_id', 'junior_name as uname', '_role.rolename as rolename')
+            ->join('_role', '_role.role_id', '=', 'users_junior_hierarchy.role_id', 'INNER')
+            ->where('users_junior_hierarchy.senior_id', $user)
+            ->orderBy('users_junior_hierarchy.id')
+            ->get();
+        $ip = 0;
+        $catSale = array();
+        foreach ($pwRdUser as $keypwRd => $valuepwRd) {
+            $catSale[$ip]['user_id'] = $valuepwRd->user_id;
+            $catSale[$ip]['uname'] = $valuepwRd->uname;
+            $catSale[$ip]['rolename'] = $valuepwRd->rolename;
+            // ch_user_id
+
+            $catet = DB::table('sale_view')->select(DB::raw("count(DISTINCT order_id) as sale"))
+                ->join('catalog_view', 'catalog_view.product_id', '=', 'sale_view.product_id', 'INNER')
+                ->where(DB::raw("DATE_FORMAT(date,'%Y-%m-%d')"), '>=', DB::raw("'$startDate'"))
+                ->where(DB::raw("DATE_FORMAT(date,'%Y-%m-%d')"), '<=', DB::raw("'$date'"))
+                ->where('user_id', $valuepwRd->user_id)
+                ->first();
+
+            $catSale[$ip]['salet'] = $catet->sale;
+
+            $cate1 = DB::table('sale_view')->select(DB::raw("count(DISTINCT order_id) as sale"))
+                ->join('catalog_view', 'catalog_view.product_id', '=', 'sale_view.product_id', 'INNER')
+                ->where(DB::raw("DATE_FORMAT(date,'%Y-%m-%d')"), '>=', DB::raw("'$startDate'"))
+                ->where(DB::raw("DATE_FORMAT(date,'%Y-%m-%d')"), '<=', DB::raw("'$date'"))
+                ->where('user_id', $valuepwRd->user_id)
+                ->where('catalog_view.c1_id', '120150507011140')
+                ->first();
+
+            $catSale[$ip]['sale1'] = $cate1->sale;
+
+            // ch_user_id
+            $cate2 = DB::table('sale_view')->select(DB::raw("count(DISTINCT order_id) as sale"))
+                ->join('catalog_view', 'catalog_view.product_id', '=', 'sale_view.product_id', 'INNER')
+                ->where(DB::raw("DATE_FORMAT(date,'%Y-%m-%d')"), '>=', DB::raw("'$startDate'"))
+                ->where(DB::raw("DATE_FORMAT(date,'%Y-%m-%d')"), '<=', DB::raw("'$date'"))
+                ->where('user_id', $valuepwRd->user_id)
+                ->where('catalog_view.c1_id', '120150507011152')
+                ->first();
+
+            $catSale[$ip]['sale2'] = $cate2->sale;
+
+            // ch_user_id
+            $cate3 = DB::table('sale_view')->select(DB::raw("count(DISTINCT order_id) as sale"))
+                ->join('catalog_view', 'catalog_view.product_id', '=', 'sale_view.product_id', 'INNER')
+                ->where(DB::raw("DATE_FORMAT(date,'%Y-%m-%d')"), '>=', DB::raw("'$startDate'"))
+                ->where(DB::raw("DATE_FORMAT(date,'%Y-%m-%d')"), '<=', DB::raw("'$date'"))
+                ->where('user_id', $valuepwRd->user_id)
+                ->where('catalog_view.c1_id', '120150507011211')
+                ->first();
+
+            $catSale[$ip]['sale3'] = $cate3->sale;
+            // ch_user_id
+            $cate4 = DB::table('sale_view')->select(DB::raw("count(DISTINCT order_id) as sale"))
+                ->join('catalog_view', 'catalog_view.product_id', '=', 'sale_view.product_id', 'INNER')
+                ->where(DB::raw("DATE_FORMAT(date,'%Y-%m-%d')"), '>=', DB::raw("'$startDate'"))
+                ->where(DB::raw("DATE_FORMAT(date,'%Y-%m-%d')"), '<=', DB::raw("'$date'"))
+                ->where('user_id', $valuepwRd->user_id)
+                ->where('catalog_view.c1_id', '120150507011222')
+                ->first();
+
+            $catSale[$ip]['sale4'] = $cate4->sale;
+
+            $cate5 = DB::table('sale_view')->select(DB::raw("count(DISTINCT order_id) as sale"))
+                ->join('catalog_view', 'catalog_view.product_id', '=', 'sale_view.product_id', 'INNER')
+                ->where(DB::raw("DATE_FORMAT(date,'%Y-%m-%d')"), '>=', DB::raw("'$startDate'"))
+                ->where(DB::raw("DATE_FORMAT(date,'%Y-%m-%d')"), '<=', DB::raw("'$date'"))
+                ->where('user_id', $valuepwRd->user_id)
+                ->where('catalog_view.c1_id', '120150507011301')
+                ->first();
+
+            $catSale[$ip]['sale5'] = $cate5->sale;
+
+            $cate6 = DB::table('sale_view')->select(DB::raw("count(DISTINCT order_id) as sale"))
+                ->join('catalog_view', 'catalog_view.product_id', '=', 'sale_view.product_id', 'INNER')
+                ->where(DB::raw("DATE_FORMAT(date,'%Y-%m-%d')"), '>=', DB::raw("'$startDate'"))
+                ->where(DB::raw("DATE_FORMAT(date,'%Y-%m-%d')"), '<=', DB::raw("'$date'"))
+                ->where('user_id', $valuepwRd->user_id)
+                ->where('catalog_view.c1_id', '120150622100550')
+                ->first();
+
+            $catSale[$ip]['sale6'] = $cate6->sale;
+
+            $cate7 = DB::table('sale_view')->select(DB::raw("count(DISTINCT order_id) as sale"))
+                ->join('catalog_view', 'catalog_view.product_id', '=', 'sale_view.product_id', 'INNER')
+                ->where(DB::raw("DATE_FORMAT(date,'%Y-%m-%d')"), '>=', DB::raw("'$startDate'"))
+                ->where(DB::raw("DATE_FORMAT(date,'%Y-%m-%d')"), '<=', DB::raw("'$date'"))
+                ->where('user_id', $valuepwRd->user_id)
+                ->where('catalog_view.c1_id', '120170323095853')
+                ->first();
+
+            $catSale[$ip]['sale7'] = $cate7->sale;
+
+            $cate8 = DB::table('sale_view')->select(DB::raw("count(DISTINCT order_id) as sale"))
+                ->join('catalog_view', 'catalog_view.product_id', '=', 'sale_view.product_id', 'INNER')
+                ->where(DB::raw("DATE_FORMAT(date,'%Y-%m-%d')"), '>=', DB::raw("'$startDate'"))
+                ->where(DB::raw("DATE_FORMAT(date,'%Y-%m-%d')"), '<=', DB::raw("'$date'"))
+                ->where('user_id', $valuepwRd->user_id)
+                ->where('catalog_view.c1_id', '120171219112227')
+                ->first();
+
+            $catSale[$ip]['sale8'] = $cate8->sale;
+
+            $cate9 = DB::table('sale_view')->select(DB::raw("count(DISTINCT order_id) as sale"))
+                ->join('catalog_view', 'catalog_view.product_id', '=', 'sale_view.product_id', 'INNER')
+                ->where(DB::raw("DATE_FORMAT(date,'%Y-%m-%d')"), '>=', DB::raw("'$startDate'"))
+                ->where(DB::raw("DATE_FORMAT(date,'%Y-%m-%d')"), '<=', DB::raw("'$date'"))
+                ->where('user_id', $valuepwRd->user_id)
+                ->where('catalog_view.c1_id', '120171219112228')
+                ->first();
+
+            $catSale[$ip]['sale9'] = $cate9->sale;
+
+            $ip++;
+        }
+        return view('reports.daily-item-report.panel4',
+            [
+                'workingDays' => $workingDays
+                , 'days' => $days
+                , 'userName' => $userName
+                , 'catSale' => $catSale
+            ]);
+    }
+
+    public function dtrpanel5(Request $request)
+    {
+        $region = $request->region;
+        $user = $request->user;
+        $date = $request->date;
+
+        $month = date('Y-m', strtotime($date));
+        $startDate = $month . "-01";
+        $days = date('d', strtotime($date));
+        $start = new DateTime($startDate);
+        $sundays = floor($days / 7) + ($start->format('N') + $days % 7 >= 7);
+        $totalOff = $sundays + 1;
+        $workingDays = $days - $totalOff;
+        $lastmonthDate = date('Y-m-d', strtotime('-1 month', strtotime($date)));
+        $lastMonth = date('Y-m', strtotime($lastmonthDate));
+        $startlastDate = $lastMonth . "-01";
+        $_SESSION['juniordata'] = array();
+
+        DB::delete('delete from users_junior_hierarchy where senior_id = ?', [$user]);
+        $details = DB::table('person')
+            ->where('id', $user)->where('status', '1')
+            ->select('id', DB::raw("CONCAT(person.first_name,' ',person.last_name) as uname"),
+                'role_id')->first();
+        DB::table('users_junior_hierarchy')->insert(
+            ['senior_id' => $user,
+                'junior_id' => $user,
+                'junior_name' => $details->uname,
+                'role_id' => $details->role_id
+                , 'created_at' => now()
+                , 'updated_at' => now()]
+        );
+        $myobj = new MyConfiguration();
+        $myobj->getJuniorPersonWithSenior($user, $user);
+        $junior = $_SESSION['juniordata'];
+        //  print_r($_SESSION['juniordata']); exit;
+        $userName = DB::table('person')->where('id', $user)->select(DB::raw("CONCAT(person.first_name,' ',person.last_name) as uname"))->first();
+        // Data //
+        $outLets = DB::table('users_junior_hierarchy')
+            ->select('junior_id as user_id', 'junior_name as uname',
+                'target', 'achievement', 'month', '_role.rolename as rolename')
+            ->leftJoin('user_retailer_create_target', function ($joino) use ($month) {
+                $joino->on('user_retailer_create_target.user_id', '=', 'users_junior_hierarchy.junior_id');
+                $joino->on(DB::raw("DATE_FORMAT(user_retailer_create_target.month,'%Y-%m')"), '=', DB::raw("'$month'"));
+            })
+            ->join('_role', '_role.role_id', '=', 'users_junior_hierarchy.role_id', 'INNER')
+            ->where('users_junior_hierarchy.senior_id', $user)
+            ->orderBy('users_junior_hierarchy.id')
+            ->get();
+        $outLet = array();
+        $i = 0;
+        foreach ($outLets as $key => $value) {
+            $outLet[$i]['user_id'] = $value->user_id;
+            $outLet[$i]['uname'] = $value->uname;
+            $outLet[$i]['target'] = $value->target;
+            $outLet[$i]['rolename'] = $value->rolename;
+            $newOutlet = DB::table('retailer')
+                ->select(DB::raw("count(DISTINCT retailer.id) as retailerCount"))
+                ->where(DB::raw("DATE_FORMAT(retailer.created_on,'%Y-%m-%d')"), '>=', $startDate)
+                ->where(DB::raw("DATE_FORMAT(retailer.created_on,'%Y-%m-%d')"), '<=', $date)
+                ->where('created_by_person_id', '=', $value->user_id)
+                ->first();
+
+            $retailerActive = DB::table('retailer')
+                ->select(DB::raw("count(DISTINCT retailer.id) as retailer"))
+                ->where(DB::raw("DATE_FORMAT(retailer.created_on,'%Y-%m-%d')"), '=', $startDate)
+                ->where('created_by_person_id', '=', $value->user_id)
+                ->first();
+
+            $retailerActiveLast = DB::table('retailer')
+                ->select(DB::raw("count(DISTINCT retailer.id) as retailer"))
+                ->where(DB::raw("DATE_FORMAT(retailer.created_on,'%Y-%m-%d')"), '=', $lastmonthDate)
+                ->where('created_by_person_id', '=', $value->user_id)
+                ->first();
+            $outLet[$i]['newOutlet'] = $newOutlet->retailerCount;
+            $outLet[$i]['retailerActive'] = $retailerActive->retailer;
+            $outLet[$i]['retailerActiveLast'] = $retailerActiveLast->retailer;
+
+            $i++;
+        }
+//  dd($userName);
+        return view('reports.daily-item-report.panel5',
+            ['workingDays' => $workingDays
+                , 'days' => $days
+                , 'userName' => $userName
+                , 'outLet' => $outLet
+
+            ]);
+
+
+    }
+
+//Ganesh Add function for
+    public function distributerStock(Request $request)
+    {
+
+        if ($request->ajax()) {
+
+            $region = $request->region;
+            $state = $request->area;
+            $town = $request->territory;
+            $distributor = $request->distributor;
+            $beat = $request->belt;
+            $role = $request->role;
+            $user = $request->user;
+            $from_date = $request->from_date;
+            $to_date = $request->to_date;
+
+
+            $query_data = DB::table('dealer_balance_stock')
+                ->select('pcs_mrp', DB::raw('CONCAT(person.first_name," ",person.last_name) as user_name'), 'dealer.name as dealer_name', 'dealer_balance_stock.*', 'catalog_product.name as product_name')
+                ->join('person', 'person.id', '=', 'dealer_balance_stock.user_id')
+                ->join('catalog_product', 'catalog_product.id', '=', 'dealer_balance_stock.product_id')
+                ->join('dealer', 'dealer.id', '=', 'dealer_balance_stock.dealer_id');
+
+            $tmp = array();
+            $dealer_beat = DB::table('location_view');
+
+            if (!empty($beat)) {
+                $dealer_beat->whereIn('l5_id', $beat)->pluck('l5_id');
+            } //State Data
+            elseif (!empty($town)) {
+
+                $dealer_beat->whereIn('l4_id', $town)->pluck('l5_id');
+            } //Town Data
+            elseif (!empty($state)) {
+
+                $dealer_beat->whereIn('l3_id', $state)->pluck('l5_id');
+
+            } //Beat Data
+            elseif (!empty($region)) {
+                $tr = [];
+                $tr = $dealer_beat->whereIn('l1_id', $region)->pluck('l5_id');
+
+            }
+
+
+            if (!empty($request->distributor)) {
+
+                $tr = [];
+                $tr = $request->distributor;
+            }
+
+            if (!empty($tr)) {
+                $query_data->whereIn('dealer_balance_stock.dealer_id', $tr);
+            }
+
+// To find No of user under certain role
+            $flag = [];
+            if (!empty($request->role)) {
+                $roleArr = $request->role;
+                if (!empty($roleArr)) {
+                    $flag = DB::table('person')->whereIn('role_id', $roleArr)->pluck('id');
+                }
+            }
+
+            if (!empty($user)) {
+
+                $flag = [];
+                $flag = $request->user;
+
+            }
+
+            if (!empty($flag)) {
+                $query_data->whereIn('dealer_balance_stock.user_id', $flag);
+            }
+
+            if (!empty($request->from_date)) {
+                $fromdate = date('Y-m-d', strtotime($request->from_date));
+//echo $fromdate;
+                if (!empty($request->to_date)) {
+                    $var = strtotime($request->to_date);
+                    $todate = date('Y-m-d', $var);
+
+                } else {
+                    $todate = date('Y-m-d');
+
+                }
+
+                $query_data->whereRaw("DATE_FORMAT(dealer_balance_stock.submit_date_time, '%Y-%m-%d') >= '$fromdate'");
+
+                $query_data->whereRaw("DATE_FORMAT(dealer_balance_stock.submit_date_time, '%Y-%m-%d') <= '$todate'");
+            }
+
+            $query = $query_data->get();
+
+            return view('reports.distributer-stock-report.panel1', [
+                'records' => $query
+            ]);
+        } else {
+            echo '<p class="alert-danger">Do not hack the system</p>';
+        }
+    }
+
+    public function dealerPrimarySale(Request $request)
+    {
+        if ($request->ajax()) {
+            $user_id = $request->user;
+
+            $region = $request->region;
+            $state = $request->area;
+            $town = $request->territory;
+            $distributor = $request->distributor;
+            $beat = $request->belt;
+            $role = $request->role;
+            $user = $request->user;
+            $from_date = $request->from_date;
+            $to_date = $request->to_date;
+
+            $query_data = DB::table('user_primary_sales_order')
+                ->select('location_view.l4_name', DB::raw('CONCAT(person.first_name," ",person.last_name) as user_name'), 'dealer.name as dealer_name', 'user_primary_sales_order.*')
+                ->join('person', 'person.id', '=', 'user_primary_sales_order.created_person_id')
+                ->join('dealer', 'dealer.id', '=', 'user_primary_sales_order.dealer_id')
+                ->leftJoin('dealer_location_rate_list', 'dealer_location_rate_list.dealer_id', '=', 'dealer.id')
+                ->leftJoin('location_view', 'dealer_location_rate_list.location_id', '=', 'location_view.l5_id');
+
+
+            $tmp = array();
+            $dealer_beat = DB::table('dealer')
+                ->leftJoin('dealer_location_rate_list', 'dealer_location_rate_list.dealer_id', '=', 'dealer.id')
+                ->leftJoin('location_view', 'dealer_location_rate_list.location_id', '=', 'location_view.l5_id')
+                ->where('dealer_location_rate_list.user_id', '=', 0);
+
+            if (!empty($beat)) {
+                $dealer_beat->whereIn('l5_id', $beat)->pluck('l5_id');
+            } //State Data
+            elseif (!empty($town)) {
+                $dealer_beat->whereIn('l4_id', $town)->pluck('l4_id');
+            } //Town Data
+            elseif (!empty($state)) {
+
+                $dealer_beat->whereIn('l3_id', $state)->pluck('l3_id');
+
+            } //Beat Data
+            elseif (!empty($region)) {
+                $dealer_beat->whereIn('l2_id', $region)->pluck('l2_id');
+            }
+
+            $result = $dealer_beat
+                ->select('dealer.id', 'location_view.l4_id', 'l5_id')
+                ->groupBy('l4_id', 'dealer.id', 'location_view.l5_id')
+                ->get();
+
+
+            // To find Beat Array  form location view
+
+            foreach ($result as $val) {
+                if (!empty($val->id))
+                    $tmp[] = $val->id;
+            }
+            if (!empty($request->distributor)) {
+
+                $tmp = [];
+                $tmp = $request->distributor;
+            }
+            if (!empty($tmp)) {
+                $updated = array_unique($tmp);
+                $query_data->whereIn('user_primary_sales_order.dealer_id', $updated);
+            }
+
+            // To find No of user under certain role 
+            $flag = [];
+            if (!empty($request->role)) {
+                $roleArr = $request->role;
+                if (!empty($roleArr)) {
+                    $flag = DB::table('person')->whereIn('role_id', $roleArr)->pluck('id');
+                }
+            }
+
+            if (!empty($user)) {
+                $flag = [];
+                $flag = $request->user;
+
+            }
+
+            if (!empty($flag)) {
+                $query_data->whereIn('user_primary_sales_order.created_person_id', $flag);
+            }
+
+            if (!empty($request->from_date)) {
+                $fromdate = date('Y-m-d', strtotime($request->from_date));
+                if (!empty($request->todate)) {
+                    $var = strtotime($request->to_date);
+                    $todate = date('Y-m-d', strtotime('+1 day', $var));
+                } else {
+                    $todate = date('Y-m-d', strtotime('now'));
+                }
+
+                $query_data->whereRaw("DATE_FORMAT(user_primary_sales_order.created_date, '%Y-%m-%d')>='$fromdate' and DATE_FORMAT(user_primary_sales_order.created_date,'%Y-%m-%d') <='$todate'");
+            }
+
+            $mid_query = $query_data
+//                ->select('location_view.l4_name','user_name','dealer_name','id','order_id','dealer_id','created_date','created_person_id','sale_date','receive_date','date_time','company_id','ch_date','challan_no','csa_id','action','is_claim','sync_status')
+                ->groupBy('l4_id', 'user_name', 'dealer_name', 'id', 'order_id', 'dealer_id', 'created_date', 'created_person_id', 'sale_date', 'receive_date', 'date_time', 'company_id', 'ch_date', 'challan_no', 'csa_id', 'action', 'is_claim', 'sync_status');
+            $d = $mid_query->get();
+            $idArr = $mid_query->pluck('order_id')->toArray();
+            $orderArr = !empty($idArr) ? array_unique($idArr) : [];
+
+            $order_details = DB::table('user_primary_sales_order_details')
+                ->leftJoin('catalog_product','catalog_product.id','=','user_primary_sales_order_details.product_id')
+                ->whereIn('order_id', $orderArr)
+                ->select('catalog_product.name','catalog_product.weight','user_primary_sales_order_details.rate','user_primary_sales_order_details.cases','user_primary_sales_order_details.cases','user_primary_sales_order_details.pcs','user_primary_sales_order_details.pr_rate','user_primary_sales_order_details.order_id')
+                ->get();
+            $orderDetailArr = [];
+            foreach ($order_details as $od) {
+                $orderDetailArr[$od->order_id][] = $od;
+//                $orderDetailArr[$od->order_id]['weight'] = $od->weight;
+//                $orderDetailArr[$od->order_id]['rate'] = $od->rate;
+//                $orderDetailArr[$od->order_id]['quantity'] = $od->quantity;
+//                $orderDetailArr[$od->order_id]['cases'] = $od->cases;
+//                $orderDetailArr[$od->order_id]['pcs'] = $od->pcs;
+//                $orderDetailArr[$od->order_id]['pr_rate'] = $od->pr_rate;
+//                $orderDetailArr[$od->order_id]['order_id'] = $od->order_id;
+            }
+//            dd($orderDetailArr);
+            return view('reports.distributer-stock-report.panel6', [
+                'records' => $d,
+                'order_detial_arr' => $orderDetailArr
+            ]);
+        } else {
+            echo '<p class="alert-danger">Do not hack the system</p>';
+        }
+    }
+
+
+    public function distributerReportReturn(Request $request)
+    {
+        if ($request->ajax()) {
+            $user_id = $request->user;
+            $region = $request->region;
+            $state = $request->area;
+            $town = $request->territory;
+            $distributor = $request->distributor;
+            $beat = $request->belt;
+            $role = $request->role;
+            $user = $request->user;
+            $from_date = $request->from_date;
+            $to_date = $request->to_date;
+
+
+            $query_data = DB::table('damage_replace')
+                ->select('retailer.name as rname', 'catalog_product.name as product_name', DB::raw('CONCAT(person.first_name," ",person.last_name) as user_name'), 'dealer.name as dealer_name', 'damage_replace.*')
+                ->join('person', 'person.id', '=', 'damage_replace.user_id')
+                ->join('dealer', 'dealer.id', '=', 'damage_replace.dis_code')
+                ->leftJoin('catalog_product', 'catalog_product.id', 'damage_replace.prod_code')
+                ->leftJoin('retailer', 'retailer.id', 'damage_replace.ret_code');
+
+
+            $dealer_beat = DB::table('location_view');
+
+            if (!empty($beat)) {
+
+                $dealer_beat->whereIn('l5_id', $beat)->pluck('l5_id');
+            } //State Data
+            elseif (!empty($town)) {
+
+                $dealer_beat->whereIn('l4_id', $town)->pluck('l5_id');
+            } //Town Data
+            elseif (!empty($state)) {
+
+                $dealer_beat->whereIn('l3_id', $state)->pluck('l5_id');
+
+            } //Beat Data
+            elseif (!empty($region)) {
+                $tr = [];
+                $tr = $dealer_beat->whereIn('l1_id', $region)->pluck('l5_id');
+
+            }
+
+
+            if (!empty($request->distributor)) {
+
+                $tr = [];
+                $tr = $request->distributor;
+            }
+
+            if (!empty($tr)) {
+                $query_data->whereIn('damage_replace.dis_code', $tr);
+            }
+
+            // To find No of user under certain role 
+            $flag = [];
+            if (!empty($request->role)) {
+                $roleArr = $request->role;
+                if (!empty($roleArr)) {
+                    $flag = DB::table('person')->whereIn('role_id', $roleArr)->pluck('id');
+                }
+            }
+
+            if (!empty($user)) {
+
+                $flag = [];
+                $flag = $request->user;
+
+            }
+
+            if (!empty($flag)) {
+                $query_data->whereIn('damage_replace.user_id', $flag);
+            }
+
+            if (!empty($request->from_date)) {
+                $fromdate = date('Y-m-d', strtotime($request->from_date));
+                if (!empty($request->todate)) {
+                    $var = strtotime($request->to_date);
+                    $todate = date('Y-m-d', $var);
+                } else {
+                    $todate = date('Y-m-d', strtotime('now'));
+                }
+
+//              $query_data->whereBetween('damage_replace.date_time', [$fromdate, $todate]);
+                $query_data->whereRaw("DATE_FORMAT(damage_replace.date_time, '%Y-%m-%d')>='$fromdate' and DATE_FORMAT(damage_replace.date_time,'%Y-%m-%d') <='$todate'");
+            }
+
+            $query = $query_data->get();
+
+            return view('reports.distributer-stock-report.panel2', [
+                'records' => $query
+            ]);
+        } else {
+            echo '<p class="alert-danger">Do not hack the system</p>';
+        }
+    }
+
+    public function paymemtCollectionReport(Request $request)
+    {
+        if ($request->ajax()) {
+            $user_id = $request->user;
+            $region = $request->region;
+            $state = $request->area;
+            $town = $request->territory;
+            $distributor = $request->distributor;
+            $beat = $request->belt;
+            $role = $request->role;
+            $user = $request->user;
+            $from_date = $request->from_date;
+            $to_date = $request->to_date;
+
+            $query_data = DB::table('dealer_payments')
+                ->select('drawn_from_bank', 'deposited_bank', 'invoice_number', 'person.emp_code', DB::raw('CONCAT(person.first_name," ",person.last_name) as user_name'), 'dealer.name as dealer_name', 'location_view.l1_name as zone', 'location_view.l2_name as region',
+                    'location_view.l4_name as town_name', 'dealer_payments.*')
+                ->join('person', 'person.id', '=', 'dealer_payments.user_id')
+                ->leftJoin('dealer', 'dealer.id', '=', 'dealer_payments.dealer_id')
+                ->leftJoin('location_view', 'location_view.l4_id', '=', 'dealer_payments.town');
+
+            $dealer_beat = DB::table('location_view');
+
+            if (!empty($beat)) {
+
+                $dealer_beat->whereIn('l5_id', $beat)->pluck('l5_id');
+            } //State Data
+            elseif (!empty($town)) {
+
+                $dealer_beat->whereIn('l4_id', $town)->pluck('l5_id');
+            } //Town Data
+            elseif (!empty($state)) {
+
+                $dealer_beat->whereIn('l3_id', $state)->pluck('l5_id');
+
+            } //Beat Data
+            elseif (!empty($region)) {
+                $tr = [];
+                $tr = $dealer_beat->whereIn('l1_id', $region)->pluck('l5_id');
+
+            }
+
+
+            if (!empty($request->distributor)) {
+
+                $tr = [];
+                $tr = $request->distributor;
+            }
+
+            if (!empty($tr)) {
+                $query_data->whereIn('dealer_payments.dealer_id', $tr);
+            }
+
+            // To find No of user under certain role 
+            $flag = [];
+            if (!empty($request->role)) {
+                $roleArr = $request->role;
+                if (!empty($roleArr)) {
+                    $flag = DB::table('person')->whereIn('role_id', $roleArr)->pluck('id');
+                }
+            }
+
+            if (!empty($user)) {
+
+                $flag = [];
+                $flag = $request->user;
+
+            }
+
+            if (!empty($flag)) {
+                $query_data->whereIn('dealer_payments.emp_id', $flag);
+            }
+
+            if (!empty($request->from_date)) {
+                $fromdate = date('Y-m-d', strtotime($request->from_date));
+                if (!empty($request->todate)) {
+                    $var = strtotime($request->to_date);
+                    $todate = date('Y-m-d', $var);
+                } else {
+                    $todate = date('Y-m-d', strtotime('now'));
+                }
+
+                $query_data->whereRaw("DATE_FORMAT(dealer_payments.payment_recevied_date, '%Y-%m-%d')>='$fromdate' and DATE_FORMAT(dealer_payments.payment_recevied_date,'%Y-%m-%d') <='$todate'");
+            }
+
+            $query = $query_data->get();
+
+            return view('reports.distributer-stock-report.panel3', [
+                'records' => $query
+            ]);
+        } else {
+            echo '<p class="alert-danger">Do not hack the system</p>';
+        }
+    }
+
+}
